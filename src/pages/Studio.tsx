@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useConversation } from "@11labs/react";
@@ -26,7 +27,10 @@ const Studio = () => {
     onConnect: () => {
       console.log("Connected to ElevenLabs Conversation AI");
       setIsConnected(true);
-      toast("Connected to ElevenLabs Conversation AI");
+      toast({
+        title: "Connected",
+        description: "Connected to ElevenLabs Conversation AI"
+      });
     },
     onDisconnect: () => {
       console.log("Disconnected from ElevenLabs Conversation AI");
@@ -47,7 +51,11 @@ const Studio = () => {
     },
     onError: (error) => {
       console.error("Conversation error:", error);
-      toast("Error: Failed to connect to ElevenLabs AI");
+      toast({
+        title: "Error",
+        description: "Failed to connect to ElevenLabs AI",
+        variant: "destructive"
+      });
     }
   });
 
@@ -60,7 +68,11 @@ const Studio = () => {
       setIsListening(true);
     } catch (error) {
       console.error("Failed to start conversation:", error);
-      toast("Connection Failed: Failed to start conversation with ElevenLabs AI");
+      toast({
+        title: "Connection Failed",
+        description: "Failed to start conversation with ElevenLabs AI",
+        variant: "destructive"
+      });
     }
   };
 
@@ -82,13 +94,21 @@ const Studio = () => {
       setUserInput("");
     } catch (error) {
       console.error("Failed to send message:", error);
-      toast("Message Failed: Failed to send message");
+      toast({
+        title: "Message Failed",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
     }
   };
 
   const useTranscript = () => {
     if (!transcript.trim()) {
-      toast("No Transcript: There is no conversation transcript to process");
+      toast({
+        title: "No Transcript",
+        description: "There is no conversation transcript to process",
+        variant: "destructive"
+      });
       return;
     }
 
