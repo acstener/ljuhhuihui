@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileVideo, Upload, Clock, Check, X } from "lucide-react";
+import { FileVideo, Upload, Clock, Check, X, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
@@ -57,13 +57,21 @@ const Dashboard = () => {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Your Videos</h1>
-        <Button asChild>
-          <Link to="/upload">
-            <Upload className="mr-2 h-4 w-4" />
-            Upload New
-          </Link>
-        </Button>
+        <h1 className="text-3xl font-bold">Your Content</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/input-transcript">
+              <FileText className="mr-2 h-4 w-4" />
+              Input Transcript
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link to="/upload">
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Video
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {videos.length === 0 ? (
