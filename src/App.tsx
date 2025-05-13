@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 
 // Pages
 import Login from "./pages/Login";
@@ -43,21 +43,32 @@ const App = () => {
   // For the MVP, we'll simulate auth with a simple state
   // In a real app, this would connect to Supabase auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Load authentication state from localStorage on initial load
+  useEffect(() => {
+    const authState = localStorage.getItem("isAuthenticated");
+    if (authState === "true") {
+      setIsAuthenticated(true);
+    }
+  }, []);
 
   const login = async (email: string, password: string) => {
     console.log("Would login with", email, password);
     // Here we would connect to Supabase
     setIsAuthenticated(true);
+    localStorage.setItem("isAuthenticated", "true");
   };
 
   const register = async (email: string, password: string) => {
     console.log("Would register with", email, password);
     // Here we would connect to Supabase
     setIsAuthenticated(true);
+    localStorage.setItem("isAuthenticated", "true");
   };
 
   const logout = () => {
     setIsAuthenticated(false);
+    localStorage.removeItem("isAuthenticated");
   };
 
   return (

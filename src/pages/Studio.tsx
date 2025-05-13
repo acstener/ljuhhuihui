@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useConversation } from "@11labs/react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 const AGENT_ID = "PVNwxSmzIwblQ0k5z7s8";
+const CONNECTION_RETRY_DELAY = 2000;
+const MAX_RETRIES = 3;
 
 // Define types for ElevenLabs message format
 interface ElevenLabsMessage {
@@ -21,12 +23,21 @@ const Studio = () => {
   const [userInput, setUserInput] = useState<string>("");
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [connectionAttempts, setConnectionAttempts] = useState<number>(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
+  
+  // Stable reference to the transcript for use in callbacks
+  const transcriptRef = useRef<string>("");
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   const conversation = useConversation({
     onConnect: () => {
       console.log("Connected to ElevenLabs Conversation AI");
       setIsConnected(true);
+      setConnectionAttempts(0);
       toast({
         title: "Connected",
         description: "Connected to ElevenLabs Conversation AI"
@@ -35,7 +46,13 @@ const Studio = () => {
     onDisconnect: () => {
       console.log("Disconnected from ElevenLabs Conversation AI");
       setIsConnected(false);
-      setIsListening(false);
+      
+      if (isListening) {
+        // Only attempt reconnect if user didn't manually disconnect
+        handleReconnect();
+      } else {
+        setIsListening(false);
+      }
     },
     onMessage: (message: ElevenLabsMessage) => {
       console.log("Message received:", message);
@@ -47,6 +64,9 @@ const Studio = () => {
         setTranscript(prev => prev + "\n\nAI: " + message.message);
       } else if (message.source === "user" && message.message) {
         setTranscript(prev => prev + "\n\nYou: " + message.message);
+      } else if (message.source === "ai" && message.message) {
+        // Handle messages with source "ai"
+        setTranscript(prev => prev + "\n\nAI: " + message.message);
       }
     },
     onError: (error) => {
@@ -56,16 +76,47 @@ const Studio = () => {
         description: "Failed to connect to ElevenLabs AI",
         variant: "destructive"
       });
+      
+      if (isListening) {
+        handleReconnect();
+      }
     }
   });
 
+  const handleReconnect = useCallback(() => {
+    if (connectionAttempts < MAX_RETRIES) {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      toast({
+        title: "Reconnecting",
+        description: `Attempting to reconnect (${connectionAttempts + 1}/${MAX_RETRIES})...`
+      });
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        setConnectionAttempts(prev => prev + 1);
+        startConversation();
+      }, CONNECTION_RETRY_DELAY);
+    } else {
+      toast({
+        title: "Connection Failed",
+        description: "Could not establish a stable connection. Please try again later.",
+        variant: "destructive"
+      });
+      setIsListening(false);
+    }
+  }, [connectionAttempts]);
+
   const startConversation = async () => {
     try {
-      setTranscript("");
-      await conversation.startSession({
-        agentId: AGENT_ID
-      });
-      setIsListening(true);
+      if (!isConnected) {
+        setTranscript("");
+        await conversation.startSession({
+          agentId: AGENT_ID
+        });
+        setIsListening(true);
+      }
     } catch (error) {
       console.error("Failed to start conversation:", error);
       toast({
@@ -73,6 +124,7 @@ const Studio = () => {
         description: "Failed to start conversation with ElevenLabs AI",
         variant: "destructive"
       });
+      setIsListening(false);
     }
   };
 
@@ -80,6 +132,12 @@ const Studio = () => {
     try {
       await conversation.endSession();
       setIsListening(false);
+      
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      setConnectionAttempts(0);
     } catch (error) {
       console.error("Failed to stop conversation:", error);
     }
@@ -89,7 +147,7 @@ const Studio = () => {
     if (!userInput.trim()) return;
     
     try {
-      // Use sendUserMessage instead of sendTextMessage as per the library API
+      // Use sendUserMessage as per the library API
       await conversation.sendUserMessage(userInput);
       setUserInput("");
     } catch (error) {
@@ -103,7 +161,7 @@ const Studio = () => {
   };
 
   const useTranscript = () => {
-    if (!transcript.trim()) {
+    if (!transcriptRef.current.trim()) {
       toast({
         title: "No Transcript",
         description: "There is no conversation transcript to process",
@@ -113,11 +171,11 @@ const Studio = () => {
     }
 
     // Save transcript to localStorage to be processed
-    localStorage.setItem("studioTranscript", transcript);
+    localStorage.setItem("studioTranscript", transcriptRef.current);
     
     // Navigate to the input transcript page
     navigate("/input-transcript", { 
-      state: { transcript }
+      state: { transcript: transcriptRef.current }
     });
   };
 
@@ -126,6 +184,10 @@ const Studio = () => {
     return () => {
       if (isConnected) {
         conversation.endSession().catch(console.error);
+      }
+      
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, [isConnected, conversation]);
@@ -157,6 +219,7 @@ const Studio = () => {
                   <Button 
                     onClick={startConversation}
                     className="flex-1"
+                    disabled={connectionAttempts >= MAX_RETRIES}
                   >
                     <Mic className="mr-2 h-4 w-4" /> Start Conversation
                   </Button>
