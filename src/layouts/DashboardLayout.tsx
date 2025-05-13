@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
@@ -12,6 +12,7 @@ const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const clickHandledRef = useRef(false);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -27,13 +28,31 @@ const DashboardLayout = () => {
     }
   }, [user]);
 
-  // Custom NavLink handler to prevent re-navigation to current route
+  // Custom NavLink handler with debounce to prevent re-navigation to current route
   const handleNavLinkClick = useCallback((path: string, e: React.MouseEvent) => {
     if (location.pathname === path) {
       // If already on this route, prevent default navigation
       e.preventDefault();
+      e.stopPropagation();
       console.log(`Already on route: ${path}, preventing navigation event`);
+      return false;
     }
+    
+    // Handle navigation rate limiting to prevent rapid route changes
+    if (clickHandledRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log(`Navigation throttled, ignoring click`);
+      return false;
+    }
+    
+    // Set flag to prevent multiple rapid clicks
+    clickHandledRef.current = true;
+    setTimeout(() => {
+      clickHandledRef.current = false;
+    }, 500);
+    
+    return true;
   }, [location.pathname]);
 
   const navItems = [
