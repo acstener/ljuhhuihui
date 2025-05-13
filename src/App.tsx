@@ -14,6 +14,7 @@ import UploadVideo from "./pages/UploadVideo";
 import TranscriptView from "./pages/TranscriptView";
 import ThreadGenerator from "./pages/ThreadGenerator";
 import TranscriptInput from "./pages/TranscriptInput";
+import Studio from "./pages/Studio";
 import NotFound from "./pages/NotFound";
 import AuthLayout from "./layouts/AuthLayout";
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -93,6 +94,9 @@ const App = () => {
                 } />
                 <Route path="/input-transcript" element={
                   isAuthenticated ? <TranscriptInput /> : <Navigate to="/login" />
+                } />
+                <Route path="/studio" element={
+                  isAuthenticated ? <Studio /> : <Navigate to="/login" />
                 } />
               </Route>
               

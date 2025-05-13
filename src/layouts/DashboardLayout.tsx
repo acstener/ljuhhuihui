@@ -4,7 +4,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
 import { 
-  Home, Upload, FileVideo, Menu, X, LogOut, FileText
+  Home, Upload, Menu, X, LogOut, FileText, Mic
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -18,6 +18,7 @@ const DashboardLayout = () => {
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: FileText, label: "Input Transcript", path: "/input-transcript" },
     { icon: Upload, label: "Upload Video", path: "/upload" },
+    { icon: Mic, label: "Studio", path: "/studio" },
   ];
 
   return (

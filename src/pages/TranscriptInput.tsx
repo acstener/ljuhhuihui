@@ -1,18 +1,34 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Loader2, FileText, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const TranscriptInput = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [transcript, setTranscript] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Check if there's transcript data in location state (from Studio)
+  useEffect(() => {
+    if (location.state?.transcript) {
+      setTranscript(location.state.transcript);
+    } else {
+      // Check if there's transcript in localStorage (from Studio)
+      const savedTranscript = localStorage.getItem("studioTranscript");
+      if (savedTranscript) {
+        setTranscript(savedTranscript);
+        // Clear it so it doesn't persist across refreshes
+        localStorage.removeItem("studioTranscript");
+      }
+    }
+  }, [location.state]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
