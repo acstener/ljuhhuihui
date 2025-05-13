@@ -1,3 +1,4 @@
+
 import { Outlet } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 const AuthLayout = () => {
@@ -6,7 +7,7 @@ const AuthLayout = () => {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">
             <div className="help-nugget-logo">
-              Help<span>Factory</span>
+              Content<span>Factory</span>
             </div>
           </CardTitle>
           <CardDescription className="text-center">
@@ -17,7 +18,7 @@ const AuthLayout = () => {
           <Outlet />
         </CardContent>
         <CardFooter className="flex justify-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} HelpNugget
+          &copy; {new Date().getFullYear()} Content Factory
         </CardFooter>
       </Card>
     </div>;

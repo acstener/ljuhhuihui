@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ const DashboardLayout = () => {
       >
         <div className="p-6">
           <div className="help-nugget-logo text-sidebar-foreground text-2xl mb-8">
-            Help<span>Nugget</span>
+            Content<span>Factory</span>
           </div>
           
           <nav className="space-y-1">
