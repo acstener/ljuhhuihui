@@ -46,9 +46,9 @@ const Studio = () => {
     onError: (error) => {
       console.error("Conversation error:", error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: "Failed to connect to ElevenLabs AI"
+        description: "Failed to connect to ElevenLabs AI",
+        variant: "destructive"
       });
     }
   });
@@ -63,9 +63,9 @@ const Studio = () => {
     } catch (error) {
       console.error("Failed to start conversation:", error);
       toast({
-        variant: "destructive",
         title: "Connection Failed",
-        description: "Failed to start conversation with ElevenLabs AI"
+        description: "Failed to start conversation with ElevenLabs AI",
+        variant: "destructive"
       });
     }
   };
@@ -89,9 +89,9 @@ const Studio = () => {
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({
-        variant: "destructive",
         title: "Message Failed",
-        description: "Failed to send message"
+        description: "Failed to send message",
+        variant: "destructive"
       });
     }
   };
@@ -99,9 +99,9 @@ const Studio = () => {
   const useTranscript = () => {
     if (!transcript.trim()) {
       toast({
-        variant: "destructive",
         title: "No Transcript",
-        description: "There is no conversation transcript to process"
+        description: "There is no conversation transcript to process",
+        variant: "destructive"
       });
       return;
     }
