@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 const DashboardLayout = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
 
@@ -19,12 +19,26 @@ const DashboardLayout = () => {
     navigate("/login");
   };
 
+  // Ensure we have a valid user before rendering content
+  useEffect(() => {
+    if (!user) {
+      console.log("No user in DashboardLayout, redirecting to login");
+    }
+  }, [user]);
+
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: FileText, label: "Input Transcript", path: "/input-transcript" },
     { icon: Upload, label: "Upload Video", path: "/upload" },
     { icon: Mic, label: "Studio", path: "/studio" },
   ];
+
+  // Add this check to prevent rendering until we're sure about auth state
+  if (!user) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-pulse">Loading...</div>
+    </div>;
+  }
 
   return (
     <div className="min-h-screen bg-background flex">

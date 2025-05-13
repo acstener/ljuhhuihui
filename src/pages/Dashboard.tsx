@@ -1,11 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileVideo, Upload, Clock, Check, X, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/App";
 
 // Simulated video data for the MVP
 const mockVideos = [
@@ -53,6 +54,18 @@ const formatDate = (dateString: string) => {
 
 const Dashboard = () => {
   const [videos, setVideos] = useState(mockVideos);
+  const { user } = useAuth();
+  
+  // Use this effect to fetch user-specific videos when authentication is stable
+  useEffect(() => {
+    // This effect will only run once the user is properly authenticated
+    if (user?.id) {
+      // Here you would normally fetch user's videos from the database
+      console.log("User authenticated, could fetch videos for:", user.id);
+      // For now we're using mock data, but in a real app you'd fetch from API:
+      // fetchUserVideos(user.id).then(data => setVideos(data));
+    }
+  }, [user?.id]);
 
   return (
     <div className="space-y-8">
