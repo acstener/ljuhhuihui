@@ -7,6 +7,7 @@ import { FileVideo, Upload, Clock, Check, X, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/App";
+import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 
 // Simulated video data for the MVP
 const mockVideos = [
@@ -72,6 +73,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Your Content</h1>
         <div className="flex gap-2">
+          <TonePreferencesDrawer />
           <Button variant="outline" asChild>
             <Link to="/input-transcript">
               <FileText className="mr-2 h-4 w-4" />

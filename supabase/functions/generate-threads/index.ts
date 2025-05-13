@@ -21,13 +21,29 @@ serve(async (req) => {
     }
     
     // Parse the request body
-    const { transcript, numThreads = 3 } = await req.json();
+    const { transcript, numThreads = 3, tonePreference = null } = await req.json();
     
     if (!transcript) {
       throw new Error('No transcript provided');
     }
 
     console.log('Generating threads from transcript...');
+    
+    // Prepare tone instruction
+    let toneInstruction = "";
+    
+    if (tonePreference) {
+      toneInstruction = `
+      Use the following tone of voice: "${tonePreference.name}"
+      
+      Tone description: "${tonePreference.description}"
+      
+      Example tweets in this tone:
+      ${tonePreference.example_tweets.map((tweet: string) => `- "${tweet}"`).join('\n')}
+      
+      Make sure all generated tweets match this tone of voice.
+      `;
+    }
     
     // Call OpenAI API to generate tweet threads
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -43,6 +59,8 @@ serve(async (req) => {
             role: 'system',
             content: `You are an expert social media content creator specializing in creating engaging Twitter/X threads. 
             Your task is to transform the provided transcript into ${numThreads} distinct Twitter thread variations.
+            
+            ${toneInstruction}
             
             For each thread variation:
             1. Create a catchy title for the thread
