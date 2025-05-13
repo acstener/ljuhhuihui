@@ -34,13 +34,13 @@ const Studio = () => {
     onMessage: (message) => {
       console.log("Message received:", message);
       
-      // Add messages to transcript
-      if (message.type === "transcript" && message.content) {
-        setTranscript(prev => prev + "\n\n" + message.content);
-      } else if (message.type === "agent" && message.content) {
-        setTranscript(prev => prev + "\n\nAI: " + message.content);
-      } else if (message.type === "user" && message.content) {
-        setTranscript(prev => prev + "\n\nYou: " + message.content);
+      // The ElevenLabs message format has 'message' and 'source' instead of 'type' and 'content'
+      if (message.source === "transcript" && message.message) {
+        setTranscript(prev => prev + "\n\n" + message.message);
+      } else if (message.source === "agent" && message.message) {
+        setTranscript(prev => prev + "\n\nAI: " + message.message);
+      } else if (message.source === "user" && message.message) {
+        setTranscript(prev => prev + "\n\nYou: " + message.message);
       }
     },
     onError: (error) => {
@@ -83,7 +83,8 @@ const Studio = () => {
     if (!userInput.trim()) return;
     
     try {
-      await conversation.sendTextMessage(userInput);
+      // Use sendUserMessage instead of sendTextMessage as per the library API
+      await conversation.sendUserMessage(userInput);
       setUserInput("");
     } catch (error) {
       console.error("Failed to send message:", error);
