@@ -1,7 +1,6 @@
 
-// Import from sonner.tsx instead of toast.tsx
-import { useToast as useShadcnToast } from "@/components/ui/toaster";
-import { toast as sonnerToast } from "@/components/ui/sonner";
+// Re-export from the correct files
+import { useToast } from "@/components/ui/toast";
+import { toast } from "sonner";
 
-export const useToast = useShadcnToast;
-export const toast = sonnerToast;
+export { useToast, toast };

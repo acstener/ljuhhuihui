@@ -1,14 +1,19 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useConversation } from "@11labs/react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Headphones, Send } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 const AGENT_ID = "PVNwxSmzIwblQ0k5z7s8";
+
+// Define types for ElevenLabs message format
+interface ElevenLabsMessage {
+  source: string;
+  message: string;
+}
 
 const Studio = () => {
   const [transcript, setTranscript] = useState<string>("");
@@ -21,20 +26,17 @@ const Studio = () => {
     onConnect: () => {
       console.log("Connected to ElevenLabs Conversation AI");
       setIsConnected(true);
-      toast({
-        title: "Connected",
-        description: "Connected to ElevenLabs Conversation AI"
-      });
+      toast("Connected to ElevenLabs Conversation AI");
     },
     onDisconnect: () => {
       console.log("Disconnected from ElevenLabs Conversation AI");
       setIsConnected(false);
       setIsListening(false);
     },
-    onMessage: (message) => {
+    onMessage: (message: ElevenLabsMessage) => {
       console.log("Message received:", message);
       
-      // The ElevenLabs message format has 'message' and 'source' instead of 'type' and 'content'
+      // Handle different message sources from ElevenLabs
       if (message.source === "transcript" && message.message) {
         setTranscript(prev => prev + "\n\n" + message.message);
       } else if (message.source === "agent" && message.message) {
@@ -45,11 +47,7 @@ const Studio = () => {
     },
     onError: (error) => {
       console.error("Conversation error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to connect to ElevenLabs AI",
-        variant: "destructive"
-      });
+      toast("Error: Failed to connect to ElevenLabs AI");
     }
   });
 
@@ -62,11 +60,7 @@ const Studio = () => {
       setIsListening(true);
     } catch (error) {
       console.error("Failed to start conversation:", error);
-      toast({
-        title: "Connection Failed",
-        description: "Failed to start conversation with ElevenLabs AI",
-        variant: "destructive"
-      });
+      toast("Connection Failed: Failed to start conversation with ElevenLabs AI");
     }
   };
 
@@ -88,21 +82,13 @@ const Studio = () => {
       setUserInput("");
     } catch (error) {
       console.error("Failed to send message:", error);
-      toast({
-        title: "Message Failed",
-        description: "Failed to send message",
-        variant: "destructive"
-      });
+      toast("Message Failed: Failed to send message");
     }
   };
 
   const useTranscript = () => {
     if (!transcript.trim()) {
-      toast({
-        title: "No Transcript",
-        description: "There is no conversation transcript to process",
-        variant: "destructive"
-      });
+      toast("No Transcript: There is no conversation transcript to process");
       return;
     }
 
