@@ -34,11 +34,11 @@ const Login = () => {
         title: "Success",
         description: "You've been logged in",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login failed",
-        description: "Please check your credentials and try again",
+        description: error.message || "Please check your credentials and try again",
       });
     } finally {
       setIsLoading(false);

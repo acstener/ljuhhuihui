@@ -14,6 +14,11 @@ const DashboardLayout = () => {
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
+
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: FileText, label: "Input Transcript", path: "/input-transcript" },
@@ -70,10 +75,7 @@ const DashboardLayout = () => {
           <Button 
             variant="ghost" 
             className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            onClick={() => {
-              logout();
-              navigate("/login");
-            }}
+            onClick={handleLogout}
           >
             <LogOut size={18} className="mr-2" />
             Sign out

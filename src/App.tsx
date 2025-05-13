@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect, createContext, useContext } from "react";
+import { supabase } from "./integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 
 // Pages
 import Login from "./pages/Login";
@@ -21,10 +23,12 @@ import DashboardLayout from "./layouts/DashboardLayout";
 
 // Auth context
 interface AuthContextType {
-  isAuthenticated: boolean;
+  session: Session | null;
+  user: User | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -40,40 +44,78 @@ export const useAuth = () => {
 const queryClient = new QueryClient();
 
 const App = () => {
-  // For the MVP, we'll simulate auth with a simple state
-  // In a real app, this would connect to Supabase auth
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Load authentication state from localStorage on initial load
+  // Set up auth state listener and check for existing session
   useEffect(() => {
-    const authState = localStorage.getItem("isAuthenticated");
-    if (authState === "true") {
-      setIsAuthenticated(true);
-    }
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        console.log("Auth state changed", event);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    console.log("Would login with", email, password);
-    // Here we would connect to Supabase
-    setIsAuthenticated(true);
-    localStorage.setItem("isAuthenticated", "true");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+    } catch (error: any) {
+      console.error("Error logging in:", error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (email: string, password: string) => {
-    console.log("Would register with", email, password);
-    // Here we would connect to Supabase
-    setIsAuthenticated(true);
-    localStorage.setItem("isAuthenticated", "true");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+    } catch (error: any) {
+      console.error("Error registering:", error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem("isAuthenticated");
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error: any) {
+      console.error("Error logging out:", error.message);
+    }
   };
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={{ isAuthenticated, login, register, logout }}>
+      <AuthContext.Provider value={{ session, user, loading, login, register, logout }}>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -82,38 +124,39 @@ const App = () => {
               {/* Auth routes */}
               <Route element={<AuthLayout />}>
                 <Route path="/login" element={
-                  !isAuthenticated ? <Login /> : <Navigate to="/dashboard" />
+                  !session ? <Login /> : <Navigate to="/dashboard" />
                 } />
                 <Route path="/register" element={
-                  !isAuthenticated ? <Register /> : <Navigate to="/dashboard" />
+                  !session ? <Register /> : <Navigate to="/dashboard" />
                 } />
               </Route>
               
               {/* App routes - protected */}
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={
-                  isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
+                  session ? <Dashboard /> : <Navigate to="/login" />
                 } />
                 <Route path="/upload" element={
-                  isAuthenticated ? <UploadVideo /> : <Navigate to="/login" />
+                  session ? <UploadVideo /> : <Navigate to="/login" />
                 } />
                 <Route path="/transcript/:videoId" element={
-                  isAuthenticated ? <TranscriptView /> : <Navigate to="/login" />
+                  session ? <TranscriptView /> : <Navigate to="/login" />
                 } />
                 <Route path="/generate/:clipId" element={
-                  isAuthenticated ? <ThreadGenerator /> : <Navigate to="/login" />
+                  session ? <ThreadGenerator /> : <Navigate to="/login" />
                 } />
                 <Route path="/input-transcript" element={
-                  isAuthenticated ? <TranscriptInput /> : <Navigate to="/login" />
+                  session ? <TranscriptInput /> : <Navigate to="/login" />
                 } />
                 <Route path="/studio" element={
-                  isAuthenticated ? <Studio /> : <Navigate to="/login" />
+                  session ? <Studio /> : <Navigate to="/login" />
                 } />
               </Route>
               
               {/* Redirect root to login or dashboard based on auth state */}
               <Route path="/" element={
-                isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+                loading ? <div>Loading...</div> : 
+                session ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
               } />
               
               {/* Catch-all */}

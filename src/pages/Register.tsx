@@ -42,13 +42,13 @@ const Register = () => {
       await register(email, password);
       toast({
         title: "Account created",
-        description: "Welcome to HelpNugget!",
+        description: "Welcome to HelpNugget! Please check your email for confirmation.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Registration failed",
-        description: "Please check your information and try again",
+        description: error.message || "Please check your information and try again",
       });
     } finally {
       setIsLoading(false);
