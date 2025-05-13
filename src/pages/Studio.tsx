@@ -9,8 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 const AGENT_ID = "PVNwxSmzIwblQ0k5z7s8";
-const CONNECTION_RETRY_DELAY = 2000;
-const MAX_RETRIES = 3;
+const CONNECTION_RETRY_DELAY = 5000; // Increased to 5 seconds
+const MAX_RETRIES = 5; // Increased max retries
 
 // Define types for ElevenLabs message format
 interface ElevenLabsMessage {
@@ -24,6 +24,7 @@ const Studio = () => {
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [connectionAttempts, setConnectionAttempts] = useState<number>(0);
+  const [isInitializing, setIsInitializing] = useState<boolean>(false);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
   
@@ -38,6 +39,7 @@ const Studio = () => {
       console.log("Connected to ElevenLabs Conversation AI");
       setIsConnected(true);
       setConnectionAttempts(0);
+      setIsInitializing(false);
       toast({
         title: "Connected",
         description: "Connected to ElevenLabs Conversation AI"
@@ -47,8 +49,9 @@ const Studio = () => {
       console.log("Disconnected from ElevenLabs Conversation AI");
       setIsConnected(false);
       
-      if (isListening) {
-        // Only attempt reconnect if user didn't manually disconnect
+      // Only attempt reconnect if this was not a manual disconnect
+      if (isListening && !isInitializing) {
+        console.log("Attempting to reconnect...");
         handleReconnect();
       } else {
         setIsListening(false);
@@ -77,8 +80,11 @@ const Studio = () => {
         variant: "destructive"
       });
       
-      if (isListening) {
+      if (isListening && !isInitializing) {
         handleReconnect();
+      } else {
+        setIsListening(false);
+        setIsInitializing(false);
       }
     }
   });
@@ -88,6 +94,8 @@ const Studio = () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      
+      console.log(`Reconnect attempt ${connectionAttempts + 1}/${MAX_RETRIES}`);
       
       toast({
         title: "Reconnecting",
@@ -105,18 +113,41 @@ const Studio = () => {
         variant: "destructive"
       });
       setIsListening(false);
+      setIsInitializing(false);
     }
   }, [connectionAttempts]);
 
   const startConversation = async () => {
     try {
-      if (!isConnected) {
-        setTranscript("");
-        await conversation.startSession({
-          agentId: AGENT_ID
-        });
-        setIsListening(true);
+      setIsInitializing(true);
+      setTranscript("");
+      
+      console.log("Starting conversation with agent ID:", AGENT_ID);
+      
+      // First ensure any previous session is ended
+      if (isConnected) {
+        await conversation.endSession();
       }
+      
+      // Small delay to ensure cleanup is complete
+      setTimeout(async () => {
+        try {
+          await conversation.startSession({
+            agentId: AGENT_ID
+          });
+          setIsListening(true);
+        } catch (error) {
+          console.error("Failed to start conversation after delay:", error);
+          toast({
+            title: "Connection Failed",
+            description: "Failed to start conversation with ElevenLabs AI",
+            variant: "destructive"
+          });
+          setIsListening(false);
+          setIsInitializing(false);
+        }
+      }, 1000);
+      
     } catch (error) {
       console.error("Failed to start conversation:", error);
       toast({
@@ -125,19 +156,27 @@ const Studio = () => {
         variant: "destructive"
       });
       setIsListening(false);
+      setIsInitializing(false);
     }
   };
 
   const stopConversation = async () => {
     try {
       await conversation.endSession();
-      setIsListening(false);
       
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      
+      setIsListening(false);
       setConnectionAttempts(0);
+      setIsInitializing(false);
+      
+      toast({
+        title: "Conversation Ended",
+        description: "You have ended the conversation"
+      });
     } catch (error) {
       console.error("Failed to stop conversation:", error);
     }
@@ -147,6 +186,11 @@ const Studio = () => {
     if (!userInput.trim()) return;
     
     try {
+      console.log("Sending user message:", userInput);
+      
+      // Add the user's message to the transcript immediately
+      setTranscript(prev => prev + "\n\nYou: " + userInput);
+      
       // Use sendUserMessage as per the library API
       await conversation.sendUserMessage(userInput);
       setUserInput("");
@@ -183,6 +227,7 @@ const Studio = () => {
   useEffect(() => {
     return () => {
       if (isConnected) {
+        console.log("Component unmounting, ending session");
         conversation.endSession().catch(console.error);
       }
       
@@ -219,15 +264,22 @@ const Studio = () => {
                   <Button 
                     onClick={startConversation}
                     className="flex-1"
-                    disabled={connectionAttempts >= MAX_RETRIES}
+                    disabled={isInitializing || connectionAttempts >= MAX_RETRIES}
                   >
-                    <Mic className="mr-2 h-4 w-4" /> Start Conversation
+                    {isInitializing ? (
+                      "Connecting..."
+                    ) : (
+                      <>
+                        <Mic className="mr-2 h-4 w-4" /> Start Conversation
+                      </>
+                    )}
                   </Button>
                 ) : (
                   <Button 
                     onClick={stopConversation}
                     variant="destructive"
                     className="flex-1"
+                    disabled={isInitializing}
                   >
                     <MicOff className="mr-2 h-4 w-4" /> End Conversation
                   </Button>
@@ -243,7 +295,11 @@ const Studio = () => {
                       placeholder="Type a message..."
                       className="flex-1"
                     />
-                    <Button onClick={sendTextMessage} variant="outline">
+                    <Button 
+                      onClick={sendTextMessage} 
+                      variant="outline"
+                      disabled={!userInput.trim()}
+                    >
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>
@@ -254,6 +310,12 @@ const Studio = () => {
                     </span>
                   </div>
                 </div>
+              )}
+              
+              {connectionAttempts > 0 && connectionAttempts < MAX_RETRIES && (
+                <p className="text-sm text-yellow-600">
+                  Connection attempts: {connectionAttempts}/{MAX_RETRIES}
+                </p>
               )}
             </div>
           </CardContent>
