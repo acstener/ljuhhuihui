@@ -6,8 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Copy, Play, FileVideo, Twitter, RefreshCcw, ArrowLeft } from "lucide-react";
+import { 
+  Download, Copy, Play, FileVideo, Twitter, 
+  RefreshCcw, ArrowLeft, Sparkles 
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { useAuth } from "@/App";
 
 // Default thread structure for type safety
 const defaultThread = {
@@ -22,11 +33,14 @@ const ThreadGenerator = () => {
   const { clipId } = useParams<{ clipId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [threads, setThreads] = useState<any[]>([defaultThread]);
   const [activeThread, setActiveThread] = useState(defaultThread);
   const [activeTabId, setActiveTabId] = useState(defaultThread.id);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCopied, setIsCopied] = useState<Record<string, boolean>>({});
+  const [tonePreferences, setTonePreferences] = useState<any[]>([]);
+  const [selectedToneId, setSelectedToneId] = useState<string | null>(null);
   
   // Load generated threads from localStorage
   useEffect(() => {
@@ -59,6 +73,34 @@ const ThreadGenerator = () => {
     loadThreads();
   }, [clipId, toast]);
 
+  // Load tone preferences
+  useEffect(() => {
+    const fetchTonePreferences = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('tone_preferences')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        setTonePreferences(data || []);
+        
+        // Set first tone as default if available
+        if (data && data.length > 0 && !selectedToneId) {
+          setSelectedToneId(data[0].id);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching tone preferences:', error);
+      }
+    };
+    
+    fetchTonePreferences();
+  }, [user]);
+  
   const handleCopyTweet = (tweetId: string, text: string) => {
     navigator.clipboard.writeText(text)
       .then(() => {
@@ -143,9 +185,18 @@ const ThreadGenerator = () => {
       
       setIsGenerating(true);
       
+      // Get selected tone preference if one is selected
+      let tonePreference = null;
+      if (selectedToneId) {
+        tonePreference = tonePreferences.find(tone => tone.id === selectedToneId);
+      }
+      
       // Call the edge function to regenerate threads
       const { data, error } = await supabase.functions.invoke('generate-threads', {
-        body: { transcript: parsedData.originalTranscript },
+        body: { 
+          transcript: parsedData.originalTranscript,
+          tonePreference: tonePreference
+        },
       });
       
       if (error) {
@@ -217,15 +268,39 @@ const ThreadGenerator = () => {
                   <Twitter className="h-5 w-5 mr-2 text-[#1DA1F2]" />
                   Thread Preview
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRegenerateThreads}
-                  disabled={isGenerating}
-                >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  {isGenerating ? "Regenerating..." : "Regenerate"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {tonePreferences.length > 0 && (
+                    <div className="flex items-center">
+                      <label htmlFor="tone-select" className="text-sm mr-2">
+                        Tone:
+                      </label>
+                      <Select 
+                        value={selectedToneId || ""} 
+                        onValueChange={value => setSelectedToneId(value)}
+                      >
+                        <SelectTrigger className="w-[180px]" id="tone-select">
+                          <SelectValue placeholder="Select tone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tonePreferences.map(tone => (
+                            <SelectItem key={tone.id} value={tone.id}>
+                              {tone.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRegenerateThreads}
+                    disabled={isGenerating}
+                  >
+                    <RefreshCcw className="h-4 w-4 mr-2" />
+                    {isGenerating ? "Regenerating..." : "Regenerate"}
+                  </Button>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -287,6 +362,56 @@ const ThreadGenerator = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center">
+                <Sparkles className="h-5 w-5 mr-2 text-yellow-500" />
+                Selected Tone
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedToneId ? (
+                (() => {
+                  const selectedTone = tonePreferences.find(tone => tone.id === selectedToneId);
+                  return selectedTone ? (
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="font-medium">{selectedTone.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{selectedTone.description}</p>
+                      </div>
+                      
+                      {selectedTone.example_tweets && selectedTone.example_tweets.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Example Tweets:</h4>
+                          <div className="space-y-2">
+                            {selectedTone.example_tweets.map((tweet: string, idx: number) => (
+                              <div key={idx} className="text-sm border-l-2 border-muted pl-3 py-1">
+                                "{tweet}"
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground">Tone information not available</p>
+                  );
+                })()
+              ) : (
+                <p className="text-center text-muted-foreground">
+                  {tonePreferences.length > 0 
+                    ? "Select a tone to customize your thread's voice" 
+                    : "Add tones in the dashboard to customize your thread's voice"}
+                </p>
+              )}
+              
+              <Button onClick={handleRegenerateThreads} className="w-full" disabled={isGenerating}>
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                {isGenerating ? "Generating..." : "Generate with Selected Tone"}
+              </Button>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center">
                 <FileVideo className="h-5 w-5 mr-2" />
                 Export Options
               </CardTitle>
@@ -330,6 +455,14 @@ const ThreadGenerator = () => {
                   <span className="text-muted-foreground">Thread Type:</span>
                   <span className="font-medium">{activeThread?.title || "N/A"}</span>
                 </div>
+                {selectedToneId && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tone of Voice:</span>
+                    <span className="font-medium">
+                      {tonePreferences.find(tone => tone.id === selectedToneId)?.name || "Custom"}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
