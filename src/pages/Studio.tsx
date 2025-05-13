@@ -1,365 +1,40 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useConversation } from "@11labs/react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Headphones, Send } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 
-const AGENT_ID = "PVNwxSmzIwblQ0k5z7s8";
-const CONNECTION_RETRY_DELAY = 5000;
-const MAX_RETRIES = 5;
-
-// Debug configuration
-const DEBUG = true;
-
-// Debug logger that can be toggled on/off
-const debugLog = (message, ...args) => {
-  if (DEBUG) {
-    console.log(`[ElevenLabs Debug] ${message}`, ...args);
-  }
-};
-
-// Define types for ElevenLabs message format
-interface ElevenLabsMessage {
-  source: string;
-  message: string;
-}
-
-// Create a stable component instance to prevent re-renders
 const Studio = () => {
-  const instanceId = useRef(`studio-${Date.now()}`).current;
-  debugLog(`Studio component rendering (instance: ${instanceId})`);
+  // Use the dedicated hook for ElevenLabs conversation
+  const {
+    transcript,
+    userInput,
+    setUserInput,
+    isListening,
+    isConnected,
+    isInitializing,
+    connectionAttempts,
+    startConversation,
+    stopConversation,
+    sendTextMessage,
+  } = useElevenConversation();
   
-  // Keep all state in useRef where possible to prevent re-renders
-  const [transcript, setTranscript] = useState<string>("");
-  const [userInput, setUserInput] = useState<string>("");
-  const [isListening, setIsListening] = useState<boolean>(false);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [connectionAttempts, setConnectionAttempts] = useState<number>(0);
-  const [isInitializing, setIsInitializing] = useState<boolean>(false);
-  
-  // Use refs for things we don't want to trigger re-renders
-  const isUnmountingRef = useRef<boolean>(false);
-  const isMountedRef = useRef<boolean>(true);
-  const sessionIdRef = useRef<string | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const authStateRef = useRef<string | null>(null);
-  const transcriptRef = useRef<string>("");
-  const lastRenderTimeRef = useRef<number>(Date.now());
-  
+  // Navigation
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Track current render time to detect rapid re-renders
-  const now = Date.now();
-  debugLog(`Time since last render: ${now - lastRenderTimeRef.current}ms`);
-  lastRenderTimeRef.current = now;
   
-  // Update transcript ref whenever transcript changes
+  // Keep a stable instance identifier
+  const componentId = useRef(`studio-${Date.now()}`).current;
+  
+  // Save a copy of transcript for navigation
+  const transcriptRef = useRef(transcript);
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
-
-  // Force one-time mount/unmount handling
-  useEffect(() => {
-    debugLog(`Studio component mounted (instance: ${instanceId})`);
-    isMountedRef.current = true;
-    isUnmountingRef.current = false;
-    
-    // Check if there's a stored session from localStorage
-    const savedSession = localStorage.getItem("elevenlabs_session");
-    if (savedSession) {
-      try {
-        const sessionData = JSON.parse(savedSession);
-        debugLog("Found saved session:", sessionData);
-        if (sessionData.transcript) {
-          setTranscript(sessionData.transcript);
-          transcriptRef.current = sessionData.transcript;
-        }
-      } catch (e) {
-        debugLog("Error parsing saved session:", e);
-        localStorage.removeItem("elevenlabs_session");
-      }
-    }
-    
-    return () => {
-      debugLog(`Studio component unmounting (instance: ${instanceId})`);
-      isUnmountingRef.current = true;
-      isMountedRef.current = false;
-      
-      // Save session state before unmounting
-      if (transcriptRef.current) {
-        debugLog("Saving transcript before unmount");
-        const sessionData = {
-          timestamp: Date.now(),
-          transcript: transcriptRef.current,
-        };
-        localStorage.setItem("elevenlabs_session", JSON.stringify(sessionData));
-      }
-
-      // Cleanup connections during unmount
-      if (isConnected) {
-        debugLog("Cleaning up connection during unmount");
-        conversation.endSession().catch(error => {
-          debugLog("Error ending session during unmount:", error);
-        });
-      }
-      
-      // Clear any pending reconnect timers
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
-  }, []); // Empty dependency array to ensure this only runs once
   
-  // Track current pathname to detect navigation
-  useEffect(() => {
-    debugLog("Location changed:", location.pathname);
-  }, [location.pathname]);
-
-  // Create stable callbacks that don't change between renders
-  const onConnect = useCallback(() => {
-    if (!isMountedRef.current) {
-      debugLog("onConnect called after component unmount - ignoring");
-      return;
-    }
-    
-    debugLog("Connected to ElevenLabs Conversation AI");
-    setIsConnected(true);
-    setConnectionAttempts(0);
-    setIsInitializing(false);
-    toast({
-      title: "Connected",
-      description: "Connected to ElevenLabs Conversation AI"
-    });
-  }, []);
-  
-  const onDisconnect = useCallback(() => {
-    debugLog("Disconnected from ElevenLabs Conversation AI");
-    
-    if (!isMountedRef.current) {
-      debugLog("onDisconnect called after component unmount - ignoring reconnect");
-      return;
-    }
-    
-    setIsConnected(false);
-    
-    // Only attempt reconnect if this was not a manual disconnect
-    if (isListening && !isInitializing && !isUnmountingRef.current) {
-      debugLog("Attempting to reconnect...");
-      handleReconnect();
-    } else {
-      debugLog("Not reconnecting because:", { 
-        isListening, 
-        isInitializing, 
-        isUnmounting: isUnmountingRef.current 
-      });
-      setIsListening(false);
-    }
-  }, [isListening, isInitializing]);
-  
-  const onMessage = useCallback((message: ElevenLabsMessage) => {
-    if (!isMountedRef.current) {
-      debugLog("onMessage called after component unmount - ignoring");
-      return;
-    }
-    
-    debugLog("Message received:", message);
-    
-    // Handle different message sources from ElevenLabs
-    if (message.source === "transcript" && message.message) {
-      setTranscript(prev => prev + "\n\n" + message.message);
-    } else if (message.source === "agent" && message.message) {
-      setTranscript(prev => prev + "\n\nAI: " + message.message);
-    } else if (message.source === "user" && message.message) {
-      setTranscript(prev => prev + "\n\nYou: " + message.message);
-    } else if (message.source === "ai" && message.message) {
-      // Handle messages with source "ai"
-      setTranscript(prev => prev + "\n\nAI: " + message.message);
-    }
-  }, []);
-  
-  const onError = useCallback((error) => {
-    debugLog("Conversation error:", error);
-    toast({
-      title: "Error",
-      description: "Failed to connect to ElevenLabs AI",
-      variant: "destructive"
-    });
-    
-    if (!isMountedRef.current) {
-      debugLog("onError called after component unmount - ignoring reconnect");
-      return;
-    }
-    
-    if (isListening && !isInitializing && !isUnmountingRef.current) {
-      handleReconnect();
-    } else {
-      setIsListening(false);
-      setIsInitializing(false);
-    }
-  }, [isListening, isInitializing]);
-
-  // Create conversation with stable callbacks that won't change between renders
-  const conversation = useConversation({
-    onConnect,
-    onDisconnect,
-    onMessage,
-    onError
-  });
-
-  const handleReconnect = useCallback(() => {
-    if (!isMountedRef.current) {
-      debugLog("handleReconnect called after component unmount - aborting");
-      return;
-    }
-    
-    if (connectionAttempts < MAX_RETRIES) {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      
-      debugLog(`Reconnect attempt ${connectionAttempts + 1}/${MAX_RETRIES}`);
-      
-      toast({
-        title: "Reconnecting",
-        description: `Attempting to reconnect (${connectionAttempts + 1}/${MAX_RETRIES})...`
-      });
-      
-      reconnectTimeoutRef.current = setTimeout(() => {
-        if (isMountedRef.current) {
-          setConnectionAttempts(prev => prev + 1);
-          startConversation();
-        } else {
-          debugLog("Reconnect timeout triggered after component unmount - aborting");
-        }
-      }, CONNECTION_RETRY_DELAY);
-    } else {
-      toast({
-        title: "Connection Failed",
-        description: "Could not establish a stable connection. Please try again later.",
-        variant: "destructive"
-      });
-      setIsListening(false);
-      setIsInitializing(false);
-    }
-  }, [connectionAttempts]);
-
-  const startConversation = async () => {
-    if (!isMountedRef.current) {
-      debugLog("startConversation called after component unmount - aborting");
-      return;
-    }
-    
-    try {
-      setIsInitializing(true);
-      
-      // Don't clear the transcript if there's previous content
-      // and this is a reconnection attempt
-      if (connectionAttempts === 0) {
-        setTranscript("");
-      }
-      
-      debugLog("Starting conversation with agent ID:", AGENT_ID);
-      
-      // First ensure any previous session is ended
-      if (isConnected) {
-        debugLog("Ending previous session before starting new one");
-        await conversation.endSession();
-      }
-      
-      // Small delay to ensure cleanup is complete
-      setTimeout(async () => {
-        if (!isMountedRef.current) {
-          debugLog("setTimeout callback called after component unmount - aborting");
-          return;
-        }
-        
-        try {
-          debugLog("Starting new session with agent:", AGENT_ID);
-          await conversation.startSession({
-            agentId: AGENT_ID
-          });
-          setIsListening(true);
-        } catch (error) {
-          debugLog("Failed to start conversation after delay:", error);
-          toast({
-            title: "Connection Failed",
-            description: "Failed to start conversation with ElevenLabs AI",
-            variant: "destructive"
-          });
-          setIsListening(false);
-          setIsInitializing(false);
-        }
-      }, 1000);
-      
-    } catch (error) {
-      debugLog("Failed to start conversation:", error);
-      toast({
-        title: "Connection Failed",
-        description: "Failed to start conversation with ElevenLabs AI",
-        variant: "destructive"
-      });
-      setIsListening(false);
-      setIsInitializing(false);
-    }
-  };
-
-  const stopConversation = async () => {
-    try {
-      debugLog("Stopping conversation");
-      await conversation.endSession();
-      
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      
-      setIsListening(false);
-      setConnectionAttempts(0);
-      setIsInitializing(false);
-      
-      toast({
-        title: "Conversation Ended",
-        description: "You have ended the conversation"
-      });
-    } catch (error) {
-      debugLog("Failed to stop conversation:", error);
-    }
-  };
-
-  const sendTextMessage = async () => {
-    if (!userInput.trim()) return;
-    
-    try {
-      debugLog("Sending user message:", userInput);
-      
-      // Add the user's message to the transcript immediately
-      setTranscript(prev => prev + "\n\nYou: " + userInput);
-      
-      // Use sendUserMessage as per the library API
-      await conversation.sendUserMessage(userInput);
-      setUserInput("");
-    } catch (error) {
-      debugLog("Failed to send message:", error);
-      toast({
-        title: "Message Failed",
-        description: "Failed to send message",
-        variant: "destructive"
-      });
-    }
-  };
-
   const useTranscript = () => {
     if (!transcriptRef.current.trim()) {
-      toast({
-        title: "No Transcript",
-        description: "There is no conversation transcript to process",
-        variant: "destructive"
-      });
       return;
     }
 
@@ -371,23 +46,6 @@ const Studio = () => {
       state: { transcript: transcriptRef.current }
     });
   };
-
-  // Clean up on component unmount
-  useEffect(() => {
-    return () => {
-      if (isConnected) {
-        debugLog("Component unmounting, ending session");
-        conversation.endSession().catch((error) => {
-          debugLog("Error ending session during unmount:", error);
-        });
-      }
-      
-      if (reconnectTimeoutRef.current) {
-        debugLog("Clearing reconnect timeout during unmount");
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-    };
-  }, [isConnected, conversation]);
 
   return (
     <div className="space-y-6">
@@ -416,7 +74,7 @@ const Studio = () => {
                   <Button 
                     onClick={startConversation}
                     className="flex-1"
-                    disabled={isInitializing || connectionAttempts >= MAX_RETRIES}
+                    disabled={isInitializing || connectionAttempts >= 5}
                   >
                     {isInitializing ? (
                       "Connecting..."
@@ -464,9 +122,9 @@ const Studio = () => {
                 </div>
               )}
               
-              {connectionAttempts > 0 && connectionAttempts < MAX_RETRIES && (
+              {connectionAttempts > 0 && connectionAttempts < 5 && (
                 <p className="text-sm text-yellow-600">
-                  Connection attempts: {connectionAttempts}/{MAX_RETRIES}
+                  Connection attempts: {connectionAttempts}/5
                 </p>
               )}
             </div>

@@ -13,6 +13,7 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const clickHandledRef = useRef(false);
+  const prevPathRef = useRef(location.pathname);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -21,37 +22,35 @@ const DashboardLayout = () => {
     navigate("/login");
   };
 
-  // Ensure we have a valid user before rendering content
+  // Track previous path to prevent unnecessary re-renders
   useEffect(() => {
-    if (!user) {
-      console.log("No user in DashboardLayout, redirecting to login");
-    }
-  }, [user]);
+    prevPathRef.current = location.pathname;
+  }, [location.pathname]);
 
-  // Custom NavLink handler with debounce to prevent re-navigation to current route
+  // Enhanced NavLink handler that's even more strict about preventing navigation events
   const handleNavLinkClick = useCallback((path: string, e: React.MouseEvent) => {
-    if (location.pathname === path) {
-      // If already on this route, prevent default navigation
+    // If already on this route, always prevent default navigation
+    if (location.pathname === path || prevPathRef.current === path) {
       e.preventDefault();
       e.stopPropagation();
-      console.log(`Already on route: ${path}, preventing navigation event`);
       return false;
     }
     
-    // Handle navigation rate limiting to prevent rapid route changes
+    // Rate limiting to prevent rapid clicks
     if (clickHandledRef.current) {
       e.preventDefault();
       e.stopPropagation();
-      console.log(`Navigation throttled, ignoring click`);
       return false;
     }
     
-    // Set flag to prevent multiple rapid clicks
+    // Set navigation lock for 1 second (increased from 500ms)
     clickHandledRef.current = true;
     setTimeout(() => {
       clickHandledRef.current = false;
-    }, 500);
+    }, 1000);
     
+    // Ensure we update our path tracking
+    prevPathRef.current = path;
     return true;
   }, [location.pathname]);
 
