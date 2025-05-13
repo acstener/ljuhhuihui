@@ -6,11 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Headphones, Send } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const AGENT_ID = "PVNwxSmzIwblQ0k5z7s8";
 const CONNECTION_RETRY_DELAY = 5000; // Increased to 5 seconds
 const MAX_RETRIES = 5; // Increased max retries
+
+// Debug configuration
+const DEBUG = true;
+
+// Debug logger that can be toggled on/off
+const debugLog = (message, ...args) => {
+  if (DEBUG) {
+    console.log(`[ElevenLabs Debug] ${message}`, ...args);
+  }
+};
 
 // Define types for ElevenLabs message format
 interface ElevenLabsMessage {
@@ -19,14 +29,19 @@ interface ElevenLabsMessage {
 }
 
 const Studio = () => {
+  debugLog("Studio component rendering");
   const [transcript, setTranscript] = useState<string>("");
   const [userInput, setUserInput] = useState<string>("");
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [connectionAttempts, setConnectionAttempts] = useState<number>(0);
   const [isInitializing, setIsInitializing] = useState<boolean>(false);
+  const [isUnmounting, setIsUnmounting] = useState<boolean>(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const componentMountedRef = useRef<boolean>(true);
   
   // Stable reference to the transcript for use in callbacks
   const transcriptRef = useRef<string>("");
@@ -34,9 +49,62 @@ const Studio = () => {
     transcriptRef.current = transcript;
   }, [transcript]);
 
+  // Debug effect for component lifecycle
+  useEffect(() => {
+    debugLog("Studio component mounted");
+    componentMountedRef.current = true;
+    
+    // Check if there's a stored session from localStorage
+    const savedSession = localStorage.getItem("elevenlabs_session");
+    if (savedSession) {
+      try {
+        const sessionData = JSON.parse(savedSession);
+        debugLog("Found saved session:", sessionData);
+        if (sessionData.transcript) {
+          setTranscript(sessionData.transcript);
+          transcriptRef.current = sessionData.transcript;
+        }
+        // We don't automatically reconnect here, let user decide
+      } catch (e) {
+        debugLog("Error parsing saved session:", e);
+        localStorage.removeItem("elevenlabs_session");
+      }
+    }
+    
+    return () => {
+      debugLog("Studio component unmounting");
+      setIsUnmounting(true);
+      componentMountedRef.current = false;
+      
+      // Save session state before unmounting
+      if (transcriptRef.current) {
+        debugLog("Saving transcript before unmount");
+        const sessionData = {
+          timestamp: Date.now(),
+          transcript: transcriptRef.current,
+        };
+        localStorage.setItem("elevenlabs_session", JSON.stringify(sessionData));
+      }
+    };
+  }, []);
+  
+  // Track current pathname to detect navigation
+  useEffect(() => {
+    debugLog("Location changed:", location.pathname);
+    if (location.pathname !== "/studio" && isListening) {
+      debugLog("Navigated away from Studio while listening, cleaning up");
+      stopConversation().catch(console.error);
+    }
+  }, [location.pathname]);
+
   const conversation = useConversation({
     onConnect: () => {
-      console.log("Connected to ElevenLabs Conversation AI");
+      if (!componentMountedRef.current) {
+        debugLog("onConnect called after component unmount - ignoring");
+        return;
+      }
+      
+      debugLog("Connected to ElevenLabs Conversation AI");
       setIsConnected(true);
       setConnectionAttempts(0);
       setIsInitializing(false);
@@ -46,19 +114,35 @@ const Studio = () => {
       });
     },
     onDisconnect: () => {
-      console.log("Disconnected from ElevenLabs Conversation AI");
+      debugLog("Disconnected from ElevenLabs Conversation AI");
+      
+      if (!componentMountedRef.current) {
+        debugLog("onDisconnect called after component unmount - ignoring reconnect");
+        return;
+      }
+      
       setIsConnected(false);
       
       // Only attempt reconnect if this was not a manual disconnect
-      if (isListening && !isInitializing) {
-        console.log("Attempting to reconnect...");
+      if (isListening && !isInitializing && !isUnmounting) {
+        debugLog("Attempting to reconnect...");
         handleReconnect();
       } else {
+        debugLog("Not reconnecting because:", { 
+          isListening, 
+          isInitializing, 
+          isUnmounting 
+        });
         setIsListening(false);
       }
     },
     onMessage: (message: ElevenLabsMessage) => {
-      console.log("Message received:", message);
+      if (!componentMountedRef.current) {
+        debugLog("onMessage called after component unmount - ignoring");
+        return;
+      }
+      
+      debugLog("Message received:", message);
       
       // Handle different message sources from ElevenLabs
       if (message.source === "transcript" && message.message) {
@@ -73,14 +157,19 @@ const Studio = () => {
       }
     },
     onError: (error) => {
-      console.error("Conversation error:", error);
+      debugLog("Conversation error:", error);
       toast({
         title: "Error",
         description: "Failed to connect to ElevenLabs AI",
         variant: "destructive"
       });
       
-      if (isListening && !isInitializing) {
+      if (!componentMountedRef.current) {
+        debugLog("onError called after component unmount - ignoring reconnect");
+        return;
+      }
+      
+      if (isListening && !isInitializing && !isUnmounting) {
         handleReconnect();
       } else {
         setIsListening(false);
@@ -90,12 +179,17 @@ const Studio = () => {
   });
 
   const handleReconnect = useCallback(() => {
+    if (!componentMountedRef.current) {
+      debugLog("handleReconnect called after component unmount - aborting");
+      return;
+    }
+    
     if (connectionAttempts < MAX_RETRIES) {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       
-      console.log(`Reconnect attempt ${connectionAttempts + 1}/${MAX_RETRIES}`);
+      debugLog(`Reconnect attempt ${connectionAttempts + 1}/${MAX_RETRIES}`);
       
       toast({
         title: "Reconnecting",
@@ -103,8 +197,12 @@ const Studio = () => {
       });
       
       reconnectTimeoutRef.current = setTimeout(() => {
-        setConnectionAttempts(prev => prev + 1);
-        startConversation();
+        if (componentMountedRef.current) {
+          setConnectionAttempts(prev => prev + 1);
+          startConversation();
+        } else {
+          debugLog("Reconnect timeout triggered after component unmount - aborting");
+        }
       }, CONNECTION_RETRY_DELAY);
     } else {
       toast({
@@ -118,26 +216,43 @@ const Studio = () => {
   }, [connectionAttempts]);
 
   const startConversation = async () => {
+    if (!componentMountedRef.current) {
+      debugLog("startConversation called after component unmount - aborting");
+      return;
+    }
+    
     try {
       setIsInitializing(true);
-      setTranscript("");
       
-      console.log("Starting conversation with agent ID:", AGENT_ID);
+      // Don't clear the transcript if there's previous content
+      // and this is a reconnection attempt
+      if (connectionAttempts === 0) {
+        setTranscript("");
+      }
+      
+      debugLog("Starting conversation with agent ID:", AGENT_ID);
       
       // First ensure any previous session is ended
       if (isConnected) {
+        debugLog("Ending previous session before starting new one");
         await conversation.endSession();
       }
       
       // Small delay to ensure cleanup is complete
       setTimeout(async () => {
+        if (!componentMountedRef.current) {
+          debugLog("setTimeout callback called after component unmount - aborting");
+          return;
+        }
+        
         try {
+          debugLog("Starting new session with agent:", AGENT_ID);
           await conversation.startSession({
             agentId: AGENT_ID
           });
           setIsListening(true);
         } catch (error) {
-          console.error("Failed to start conversation after delay:", error);
+          debugLog("Failed to start conversation after delay:", error);
           toast({
             title: "Connection Failed",
             description: "Failed to start conversation with ElevenLabs AI",
@@ -149,7 +264,7 @@ const Studio = () => {
       }, 1000);
       
     } catch (error) {
-      console.error("Failed to start conversation:", error);
+      debugLog("Failed to start conversation:", error);
       toast({
         title: "Connection Failed",
         description: "Failed to start conversation with ElevenLabs AI",
@@ -162,6 +277,7 @@ const Studio = () => {
 
   const stopConversation = async () => {
     try {
+      debugLog("Stopping conversation");
       await conversation.endSession();
       
       if (reconnectTimeoutRef.current) {
@@ -178,7 +294,7 @@ const Studio = () => {
         description: "You have ended the conversation"
       });
     } catch (error) {
-      console.error("Failed to stop conversation:", error);
+      debugLog("Failed to stop conversation:", error);
     }
   };
 
@@ -186,7 +302,7 @@ const Studio = () => {
     if (!userInput.trim()) return;
     
     try {
-      console.log("Sending user message:", userInput);
+      debugLog("Sending user message:", userInput);
       
       // Add the user's message to the transcript immediately
       setTranscript(prev => prev + "\n\nYou: " + userInput);
@@ -195,7 +311,7 @@ const Studio = () => {
       await conversation.sendUserMessage(userInput);
       setUserInput("");
     } catch (error) {
-      console.error("Failed to send message:", error);
+      debugLog("Failed to send message:", error);
       toast({
         title: "Message Failed",
         description: "Failed to send message",
@@ -227,11 +343,14 @@ const Studio = () => {
   useEffect(() => {
     return () => {
       if (isConnected) {
-        console.log("Component unmounting, ending session");
-        conversation.endSession().catch(console.error);
+        debugLog("Component unmounting, ending session");
+        conversation.endSession().catch((error) => {
+          debugLog("Error ending session during unmount:", error);
+        });
       }
       
       if (reconnectTimeoutRef.current) {
+        debugLog("Clearing reconnect timeout during unmount");
         clearTimeout(reconnectTimeoutRef.current);
       }
     };

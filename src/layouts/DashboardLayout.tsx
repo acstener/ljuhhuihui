@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
 import { 
@@ -11,6 +11,7 @@ const DashboardLayout = () => {
   const { logout, user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -25,6 +26,15 @@ const DashboardLayout = () => {
       console.log("No user in DashboardLayout, redirecting to login");
     }
   }, [user]);
+
+  // Custom NavLink handler to prevent re-navigation to current route
+  const handleNavLinkClick = useCallback((path: string, e: React.MouseEvent) => {
+    if (location.pathname === path) {
+      // If already on this route, prevent default navigation
+      e.preventDefault();
+      console.log(`Already on route: ${path}, preventing navigation event`);
+    }
+  }, [location.pathname]);
 
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
@@ -70,6 +80,7 @@ const DashboardLayout = () => {
               <NavLink 
                 key={item.path} 
                 to={item.path}
+                onClick={(e) => handleNavLinkClick(item.path, e)}
                 className={({ isActive }) => `
                   flex items-center gap-3 px-3 py-2 rounded-md transition-colors
                   ${isActive 
