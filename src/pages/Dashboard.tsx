@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/App";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { formatDuration, formatDate } from "@/lib/utils";
 
 // Simulated video data for the MVP
 const mockVideos = [
@@ -38,21 +38,6 @@ const mockVideos = [
     thumbnail: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww"
   }
 ];
-
-const formatDuration = (seconds: number) => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-};
-
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-};
 
 const Dashboard = () => {
   const [videos, setVideos] = useState(mockVideos);
@@ -219,7 +204,12 @@ const Dashboard = () => {
   );
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
+// Fix the StatusBadge component by properly defining its props type
+interface StatusBadgeProps {
+  status: string;
+}
+
+const StatusBadge = ({ status }: StatusBadgeProps) => {
   switch (status) {
     case "complete":
       return (
