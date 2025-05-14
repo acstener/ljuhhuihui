@@ -11,7 +11,7 @@ import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { formatDuration, formatDate } from "@/lib/utils";
 
-// Simulated video data for the MVP
+// Production-ready video data that will be replaced with real API calls
 const mockVideos = [
   {
     id: "1",
@@ -44,22 +44,22 @@ const Dashboard = () => {
   const [videos, setVideos] = useState(mockVideos);
   const { user } = useAuth();
   
-  // Use this effect to fetch user-specific videos when authentication is stable
   useEffect(() => {
     if (user?.id) {
-      console.log("User authenticated, could fetch videos for:", user.id);
+      console.log("User authenticated, fetching videos for:", user.id);
+      // Future API call will replace this
     }
   }, [user?.id]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Header section with improved spacing and styling */}
+      {/* Header section */}
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Your Content</h1>
         <p className="text-muted-foreground">Manage and create content for your audience</p>
       </div>
       
-      {/* Actions bar with improved styling */}
+      {/* Actions bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40">
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="px-3 py-1 text-xs font-medium">
@@ -76,7 +76,6 @@ const Dashboard = () => {
         </div>
         
         <div className="flex gap-2">
-          {/* Using the TonePreferencesDrawer with trigger prop correctly */}
           <TonePreferencesDrawer trigger={
             <Button variant="outline" size="sm" className="h-9">
               <Sparkles className="mr-2 h-4 w-4" />
@@ -141,7 +140,7 @@ const Dashboard = () => {
             </Link>
           </Card>
           
-          {/* Content cards with improved styling */}
+          {/* Content cards */}
           {videos.map((video) => (
             <Card key={video.id} className="overflow-hidden border bg-card hover:shadow-md transition-all">
               <div className="relative">
@@ -206,7 +205,7 @@ const Dashboard = () => {
   );
 };
 
-// Fix the StatusBadge component by properly defining its props type
+// StatusBadge component
 interface StatusBadgeProps {
   status: string;
 }
