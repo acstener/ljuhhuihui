@@ -61,7 +61,12 @@ type TonePreference = {
   created_at: string;
 };
 
-export function TonePreferencesDrawer() {
+// Update the component to accept a trigger prop
+interface TonePreferencesDrawerProps {
+  trigger?: React.ReactNode;
+}
+
+export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [tonePreferences, setTonePreferences] = useState<TonePreference[]>([]);
   const [exampleTweets, setExampleTweets] = useState<string[]>([""]);
@@ -187,10 +192,12 @@ export function TonePreferencesDrawer() {
   return (
     <Drawer open={isOpen} onOpenChange={setIsOpen}>
       <DrawerTrigger asChild>
-        <Button variant="outline">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Tone of Voice
-        </Button>
+        {trigger || (
+          <Button variant="outline">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Tone of Voice
+          </Button>
+        )}
       </DrawerTrigger>
       <DrawerContent className="max-h-[90vh] overflow-y-auto">
         <DrawerHeader>

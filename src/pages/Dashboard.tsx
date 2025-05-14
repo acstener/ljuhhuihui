@@ -76,7 +76,7 @@ const Dashboard = () => {
         </div>
         
         <div className="flex gap-2">
-          {/* Fix: Use the TonePreferencesDrawer's trigger prop instead of children */}
+          {/* Using the TonePreferencesDrawer with trigger prop correctly */}
           <TonePreferencesDrawer trigger={
             <Button variant="outline" size="sm" className="h-9">
               <Sparkles className="mr-2 h-4 w-4" />
