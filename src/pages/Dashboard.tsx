@@ -3,11 +3,12 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileVideo, Upload, Clock, Check, X, FileText } from "lucide-react";
+import { FileVideo, Upload, Clock, Check, X, FileText, Plus, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/App";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 // Simulated video data for the MVP
 const mockVideos = [
@@ -59,28 +60,51 @@ const Dashboard = () => {
   
   // Use this effect to fetch user-specific videos when authentication is stable
   useEffect(() => {
-    // This effect will only run once the user is properly authenticated
     if (user?.id) {
-      // Here you would normally fetch user's videos from the database
       console.log("User authenticated, could fetch videos for:", user.id);
-      // For now we're using mock data, but in a real app you'd fetch from API:
-      // fetchUserVideos(user.id).then(data => setVideos(data));
     }
   }, [user?.id]);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Your Content</h1>
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header section with improved spacing and styling */}
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Your Content</h1>
+        <p className="text-muted-foreground">Manage and create content for your audience</p>
+      </div>
+      
+      {/* Actions bar with improved styling */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40">
+        <div className="flex items-center space-x-2">
+          <Badge variant="outline" className="px-3 py-1 text-xs font-medium">
+            {videos.length} Items
+          </Badge>
+          <Badge variant="secondary" className="px-3 py-1 text-xs font-medium">
+            <Check className="w-3 h-3 mr-1" /> {videos.filter(v => v.status === 'complete').length} Complete
+          </Badge>
+          {videos.filter(v => v.status === 'processing').length > 0 && (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1 text-xs font-medium">
+              <Clock className="w-3 h-3 mr-1" /> {videos.filter(v => v.status === 'processing').length} Processing
+            </Badge>
+          )}
+        </div>
+        
         <div className="flex gap-2">
-          <TonePreferencesDrawer />
-          <Button variant="outline" asChild>
+          <TonePreferencesDrawer>
+            <Button variant="outline" size="sm" className="h-9">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Tone Preferences
+            </Button>
+          </TonePreferencesDrawer>
+          
+          <Button variant="outline" size="sm" className="h-9" asChild>
             <Link to="/input-transcript">
               <FileText className="mr-2 h-4 w-4" />
-              Input Transcript
+              Text Input
             </Link>
           </Button>
-          <Button asChild>
+          
+          <Button size="sm" className="h-9" asChild>
             <Link to="/upload">
               <Upload className="mr-2 h-4 w-4" />
               Upload Video
@@ -90,71 +114,98 @@ const Dashboard = () => {
       </div>
 
       {videos.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="pt-6 pb-8 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <FileVideo className="h-6 w-6 text-muted-foreground" />
+        <Card className="border-dashed bg-background/50">
+          <CardContent className="pt-10 pb-10 flex flex-col items-center justify-center text-center">
+            <div className="rounded-full bg-primary/10 p-4 mb-5">
+              <FileVideo className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-lg font-medium">No videos yet</h3>
-            <p className="text-sm text-muted-foreground mt-2 mb-4">
-              Upload your first video to get started
+            <h3 className="text-xl font-medium mb-2">No content yet</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Upload a video or input text to start creating engaging content for your audience
             </p>
-            <Button asChild>
-              <Link to="/upload">
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Video
-              </Link>
-            </Button>
+            <div className="flex gap-3">
+              <Button asChild>
+                <Link to="/upload">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Video
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/input-transcript">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Text Input
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {/* Add content card */}
+          <Card className="border-dashed bg-background/50 hover:bg-background/80 transition-colors group">
+            <Link to="/upload" className="block h-full">
+              <CardContent className="flex flex-col items-center justify-center h-full p-8">
+                <div className="rounded-full bg-primary/10 p-4 mb-4 group-hover:bg-primary/20 transition-colors">
+                  <Plus className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-lg font-medium">Add New Content</h3>
+                <p className="text-sm text-muted-foreground mt-1">Upload a video or input text</p>
+              </CardContent>
+            </Link>
+          </Card>
+          
+          {/* Content cards with improved styling */}
           {videos.map((video) => (
-            <Card key={video.id} className="overflow-hidden">
-              <div className="aspect-video bg-muted relative">
-                <img 
-                  src={video.thumbnail} 
-                  alt={video.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+            <Card key={video.id} className="overflow-hidden border bg-card hover:shadow-md transition-all">
+              <div className="relative">
+                <AspectRatio ratio={16/9}>
+                  <img 
+                    src={video.thumbnail} 
+                    alt={video.title}
+                    className="w-full h-full object-cover"
+                  />
+                </AspectRatio>
+                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md">
                   {formatDuration(video.duration)}
+                </div>
+                <div className="absolute top-2 right-2">
+                  <StatusBadge status={video.status} />
                 </div>
               </div>
               
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{video.title}</CardTitle>
-                  <StatusBadge status={video.status} />
-                </div>
-                <CardDescription>{formatDate(video.created)}</CardDescription>
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-lg font-medium line-clamp-1">{video.title}</CardTitle>
+                <CardDescription className="flex items-center text-xs">
+                  <Clock className="h-3 w-3 mr-1 opacity-70" /> {formatDate(video.created)}
+                </CardDescription>
               </CardHeader>
               
-              <CardContent className="pb-2">
-                {video.status === "processing" && (
-                  <div className="space-y-1">
+              {video.status === "processing" && (
+                <CardContent className="pb-2 pt-0">
+                  <div className="space-y-1.5">
                     <div className="flex justify-between text-xs">
-                      <span>Processing</span>
-                      <span>{video.progress}%</span>
+                      <span className="font-medium">Processing</span>
+                      <span className="text-muted-foreground">{video.progress}%</span>
                     </div>
                     <Progress value={video.progress} className="h-1" />
                   </div>
-                )}
-              </CardContent>
+                </CardContent>
+              )}
               
-              <CardFooter>
+              <CardFooter className="pt-0">
                 {video.status === "complete" ? (
-                  <Button asChild className="w-full">
+                  <Button asChild className="w-full" size="sm">
                     <Link to={`/transcript/${video.id}`}>
                       View Transcript
                     </Link>
                   </Button>
                 ) : video.status === "failed" ? (
-                  <Button variant="destructive" className="w-full">
+                  <Button variant="destructive" className="w-full" size="sm">
+                    <X className="mr-2 h-4 w-4" />
                     Retry Processing
                   </Button>
                 ) : (
-                  <Button disabled className="w-full">
+                  <Button disabled className="w-full" size="sm">
                     <Clock className="mr-2 h-4 w-4 animate-pulse" />
                     Processing...
                   </Button>
@@ -172,21 +223,21 @@ const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
     case "complete":
       return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+        <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-0">
           <Check className="h-3 w-3 mr-1" />
           Complete
         </Badge>
       );
     case "processing":
       return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-0">
           <Clock className="h-3 w-3 mr-1 animate-pulse" />
           Processing
         </Badge>
       );
     case "failed":
       return (
-        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+        <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200 border-0">
           <X className="h-3 w-3 mr-1" />
           Failed
         </Badge>
