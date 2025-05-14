@@ -11,13 +11,12 @@ import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { formatDuration, formatDate } from "@/lib/utils";
 
-// Production-ready video data that will be replaced with real API calls
 const mockVideos = [
   {
     id: "1",
     title: "How to Use React Hooks",
     status: "complete",
-    duration: 325, // seconds
+    duration: 325,
     created: "2023-05-10T12:00:00Z",
     thumbnail: "https://images.unsplash.com/photo-1551033406-611cf9a28f67?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fGNvZGluZ3xlbnwwfHwwfHx8MA%3D%3D"
   },
@@ -26,7 +25,7 @@ const mockVideos = [
     title: "Typescript Tips and Tricks",
     status: "processing",
     progress: 60,
-    duration: 542, // seconds
+    duration: 542,
     created: "2023-05-08T15:30:00Z",
     thumbnail: "https://images.unsplash.com/photo-1566837945700-30057527ade0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGNvZGluZ3xlbnwwfHwwfHx8MA%3D%3D"
   },
@@ -34,7 +33,7 @@ const mockVideos = [
     id: "3",
     title: "Next.js Authentication Strategies",
     status: "failed",
-    duration: 420, // seconds
+    duration: 420,
     created: "2023-05-05T09:15:00Z",
     thumbnail: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww"
   }
@@ -47,19 +46,16 @@ const Dashboard = () => {
   useEffect(() => {
     if (user?.id) {
       console.log("User authenticated, fetching videos for:", user.id);
-      // Future API call will replace this
     }
   }, [user?.id]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Header section */}
       <div className="flex flex-col space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Your Content</h1>
         <p className="text-muted-foreground">Manage and create content for your audience</p>
       </div>
       
-      {/* Actions bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40">
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="px-3 py-1 text-xs font-medium">
@@ -127,7 +123,6 @@ const Dashboard = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {/* Add content card */}
           <Card className="border-dashed bg-background/50 hover:bg-background/80 transition-colors group">
             <Link to="/upload" className="block h-full">
               <CardContent className="flex flex-col items-center justify-center h-full p-8">
@@ -140,7 +135,6 @@ const Dashboard = () => {
             </Link>
           </Card>
           
-          {/* Content cards */}
           {videos.map((video) => (
             <Card key={video.id} className="overflow-hidden border bg-card hover:shadow-md transition-all">
               <div className="relative">
@@ -205,7 +199,6 @@ const Dashboard = () => {
   );
 };
 
-// StatusBadge component
 interface StatusBadgeProps {
   status: string;
 }
