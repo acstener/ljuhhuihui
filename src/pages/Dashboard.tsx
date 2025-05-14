@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,12 +76,13 @@ const Dashboard = () => {
         </div>
         
         <div className="flex gap-2">
-          <TonePreferencesDrawer>
+          {/* Fix: Use the TonePreferencesDrawer's trigger prop instead of children */}
+          <TonePreferencesDrawer trigger={
             <Button variant="outline" size="sm" className="h-9">
               <Sparkles className="mr-2 h-4 w-4" />
               Tone Preferences
             </Button>
-          </TonePreferencesDrawer>
+          } />
           
           <Button variant="outline" size="sm" className="h-9" asChild>
             <Link to="/input-transcript">
