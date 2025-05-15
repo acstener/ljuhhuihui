@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { FileVideo, Upload, Clock, Check, X, FileText, Plus, Sparkles } from "lu
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
-import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
+import TonePreferencesDrawer from "@/components/TonePreferencesDrawer";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { formatDuration, formatDate } from "@/lib/utils";
 

@@ -1,3 +1,4 @@
+
 import { Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -5,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "@/components/ui/sidebar";
 import { siteConfig } from "@/config/site";
 import { Link } from "react-router-dom";
-import { Dashboard as DashboardIcon, Upload, FileText, Sparkles, Video } from "lucide-react";
+import { LayoutDashboard, Upload, FileText, Sparkles, Video } from "lucide-react";
 import { MainNav } from "@/components/main-nav";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserNav } from "@/components/user-nav";
@@ -14,7 +15,7 @@ const navItems = [
   {
     title: "Dashboard",
     href: "/dashboard",
-    icon: DashboardIcon,
+    icon: LayoutDashboard,
   },
   {
     title: "Upload Video",
@@ -54,11 +55,7 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex h-screen antialiased">
-      <Sidebar
-        className="md:w-64 border-r flex-col space-y-2 w-full"
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      >
+      <Sidebar className="md:w-64 border-r flex-col space-y-2 w-full">
         <div className="flex-1 flex-col justify-between">
           <div className="space-y-2">
             <div className="px-4 py-2 flex items-center justify-between">
