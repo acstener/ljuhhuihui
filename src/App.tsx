@@ -13,6 +13,7 @@ import TranscriptInput from './pages/TranscriptInput';
 import TranscriptView from './pages/TranscriptView';
 import Studio from './pages/Studio';
 import Index from './pages/Index';
+import { AuthProvider } from './hooks/useAuth';
 import { Toaster } from '@/components/ui/toaster';
 import './App.css';
 
@@ -20,23 +21,25 @@ function App() {
   return (
     <>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<AuthLayout />}>
-            <Route index element={<Index />} />
-            <Route path="login" element={<Login />} />
-            <Route path="register" element={<Register />} />
-          </Route>
-          <Route path="/" element={<DashboardLayout />}>
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="upload-video" element={<UploadVideo />} />
-            <Route path="clips" element={<Clips />} />
-            <Route path="thread-generator" element={<ThreadGenerator />} />
-            <Route path="transcript-input" element={<TranscriptInput />} />
-            <Route path="transcript/:id" element={<TranscriptView />} />
-            <Route path="studio" element={<Studio />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<AuthLayout />}>
+              <Route index element={<Index />} />
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+            </Route>
+            <Route path="/" element={<DashboardLayout />}>
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="upload-video" element={<UploadVideo />} />
+              <Route path="clips" element={<Clips />} />
+              <Route path="thread-generator" element={<ThreadGenerator />} />
+              <Route path="transcript-input" element={<TranscriptInput />} />
+              <Route path="transcript/:id" element={<TranscriptView />} />
+              <Route path="studio" element={<Studio />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
       <Toaster />
     </>

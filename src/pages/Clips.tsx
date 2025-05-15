@@ -4,42 +4,27 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader, Download, RefreshCw, Video, AlertTriangle } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
+import { generateMockClips, fetchVideoStatus, retryClipGeneration, Clip } from "@/lib/mockData";
 
-type Clip = {
-  id: string;
-  video_id: string;
-  start_s: number;
-  end_s: number;
-  snippet: string;
-  clip_url: string | null;
-  status: "pending" | "rendering" | "complete" | "error";
-  error_message: string | null;
-  created_at: string;
-  updated_at: string;
+type ClipCardProps = {
+  clip: Clip;
+  onRetry: (clipId: string) => Promise<void>;
 };
 
-const ClipCard = ({ clip }: { clip: Clip }) => {
+const ClipCard = ({ clip, onRetry }: ClipCardProps) => {
   const { toast } = useToast();
   const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = async () => {
     try {
       setIsRetrying(true);
-      
-      const { error } = await supabase.functions.invoke('clips/retry', {
-        body: { clipId: clip.id }
-      });
-      
-      if (error) throw new Error(error.message);
-      
+      await onRetry(clip.id);
       toast({
         title: "Retry initiated",
         description: "We're trying to generate this clip again.",
       });
-      
     } catch (error) {
       console.error("Retry error:", error);
       toast({
@@ -153,32 +138,18 @@ const Clips = () => {
     if (!videoId) return;
 
     try {
-      // First, get video status
-      const { data: videoData, error: videoError } = await supabase
-        .from('videos')
-        .select('status')
-        .eq('id', videoId)
-        .single();
+      // Use mock data instead of Supabase calls
+      const { status } = await fetchVideoStatus(videoId);
+      setVideoStatus(status);
       
-      if (videoError) throw videoError;
+      // Generate mock clips for this video
+      const mockClips = generateMockClips(videoId);
+      setClips(mockClips);
       
-      setVideoStatus(videoData.status);
-      
-      // Then, get clips for this video
-      const { data: clipsData, error: clipsError } = await supabase
-        .from('clips')
-        .select('*')
-        .eq('video_id', videoId)
-        .order('created_at', { ascending: true });
-      
-      if (clipsError) throw clipsError;
-
-      setClips(clipsData || []);
-      
-      // If there are no clips yet, but video is being processed, continue polling
-      const shouldContinuePolling = 
-        (clipsData?.length === 0 && videoData.status !== 'complete' && videoData.status !== 'error') || 
-        clipsData?.some(clip => clip.status === 'pending' || clip.status === 'rendering');
+      // If all clips are complete or error, stop polling
+      const shouldContinuePolling = mockClips.some(clip => 
+        clip.status === 'pending' || clip.status === 'rendering'
+      );
         
       if (!shouldContinuePolling && pollInterval) {
         clearInterval(pollInterval);
@@ -190,6 +161,30 @@ const Clips = () => {
       setError(err instanceof Error ? err.message : "Failed to fetch clips");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle clip retry
+  const handleRetryClip = async (clipId: string) => {
+    try {
+      await retryClipGeneration(clipId);
+      // Update the clip status in our local state
+      setClips(prevClips => 
+        prevClips.map(clip => 
+          clip.id === clipId 
+            ? { ...clip, status: 'rendering' as const, error_message: null } 
+            : clip
+        )
+      );
+      
+      // Start polling again if we weren't already
+      if (!pollInterval) {
+        const interval = setInterval(fetchClips, 5000);
+        setPollInterval(interval);
+      }
+    } catch (error) {
+      console.error("Error retrying clip:", error);
+      throw error;
     }
   };
 
@@ -287,7 +282,7 @@ const Clips = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {clips.map((clip) => (
-            <ClipCard key={clip.id} clip={clip} />
+            <ClipCard key={clip.id} clip={clip} onRetry={handleRetryClip} />
           ))}
         </div>
       )}

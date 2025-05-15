@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileVideo, Upload, Clock, Check, X, FileText, Plus, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/App";
+import { useAuth } from "@/hooks/useAuth";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { formatDuration, formatDate } from "@/lib/utils";

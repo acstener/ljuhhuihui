@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { useAuth } from "@/App";
+import { useAuth } from "@/hooks/useAuth";
 
 // Default thread structure for type safety
 const defaultThread = {

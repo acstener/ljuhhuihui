@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Link as LinkIcon, ArrowRight, Scissors, Video } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { processVideo } from "@/lib/mockData";
 
 const UploadVideo = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -106,46 +105,8 @@ const UploadVideo = () => {
         });
       }, 200);
 
-      // For the MVP, store the video in Supabase storage first
-      let storagePath: string;
-      let fileName: string;
-      
-      if (uploadFile) {
-        fileName = uploadFile.name;
-        storagePath = `raw_videos/${crypto.randomUUID()}/${fileName}`;
-        
-        // Upload to Supabase storage
-        const { error: storageError } = await supabase.storage
-          .from('raw_videos')
-          .upload(storagePath, uploadFile);
-          
-        if (storageError) throw new Error(`Storage error: ${storageError.message}`);
-      } else {
-        // For YouTube URLs, we'll just store the URL and let the edge function handle download
-        fileName = youtubeUrl || 'youtube-video';
-        storagePath = `youtube/${crypto.randomUUID()}`; 
-      }
-      
-      // Create record in videos table
-      const { data: videoRecord, error: dbError } = await supabase
-        .from('videos')
-        .insert({
-          original_filename: fileName,
-          youtube_url: youtubeUrl,
-          storage_path: storagePath,
-          status: uploadFile ? 'uploaded' : 'ingesting'
-        })
-        .select('id')
-        .single();
-        
-      if (dbError) throw new Error(`Database error: ${dbError.message}`);
-      
-      // Trigger edge function to process the video (transcribe, select clips, etc.)
-      const { error: fnError } = await supabase.functions.invoke('videos/process', {
-        body: { videoId: videoRecord.id }
-      });
-      
-      if (fnError) throw new Error(`Process function error: ${fnError.message}`);
+      // Use our mock function instead of Supabase
+      const { videoId } = await processVideo({ uploadFile, youtubeUrl });
       
       clearInterval(interval);
       setUploadProgress(100);
@@ -155,7 +116,7 @@ const UploadVideo = () => {
           title: "Video processing initiated",
           description: "We're generating clips from your video. You'll be redirected to the clips page.",
         });
-        navigate(`/clips?videoId=${videoRecord.id}`);
+        navigate(`/clips?videoId=${videoId}`);
       }, 500);
       
     } catch (error) {

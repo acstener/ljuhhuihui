@@ -1,137 +1,85 @@
+import { Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Sidebar } from "@/components/ui/sidebar";
+import { siteConfig } from "@/config/site";
+import { Link } from "react-router-dom";
+import { Dashboard as DashboardIcon, Upload, FileText, Sparkles, Video } from "lucide-react";
+import { MainNav } from "@/components/main-nav";
+import { ModeToggle } from "@/components/mode-toggle";
+import { UserNav } from "@/components/user-nav";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/App";
-import { 
-  Home, Upload, Menu, X, LogOut, FileText, Mic
-} from "lucide-react";
+const navItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: DashboardIcon,
+  },
+  {
+    title: "Upload Video",
+    href: "/upload-video",
+    icon: Upload,
+  },
+  {
+    title: "Transcript Input",
+    href: "/transcript-input",
+    icon: FileText,
+  },
+  {
+    title: "Thread Generator",
+    href: "/thread-generator",
+    icon: Sparkles,
+  },
+];
 
 const DashboardLayout = () => {
-  const { logout, user } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const clickHandledRef = useRef(false);
-  const prevPathRef = useRef(location.pathname);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
-
-  // Track previous path to prevent unnecessary re-renders
   useEffect(() => {
-    prevPathRef.current = location.pathname;
-  }, [location.pathname]);
-
-  // Enhanced NavLink handler that's even more strict about preventing navigation events
-  const handleNavLinkClick = useCallback((path: string, e: React.MouseEvent) => {
-    // If already on this route, always prevent default navigation
-    if (location.pathname === path || prevPathRef.current === path) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
+    if (!user && !loading) {
+      navigate("/login");
     }
-    
-    // Rate limiting to prevent rapid clicks
-    if (clickHandledRef.current) {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    }
-    
-    // Set navigation lock for 1 second (increased from 500ms)
-    clickHandledRef.current = true;
-    setTimeout(() => {
-      clickHandledRef.current = false;
-    }, 1000);
-    
-    // Ensure we update our path tracking
-    prevPathRef.current = path;
-    return true;
-  }, [location.pathname]);
+  }, [user, loading, navigate]);
 
-  const navItems = [
-    { icon: Home, label: "Dashboard", path: "/dashboard" },
-    { icon: FileText, label: "Input Transcript", path: "/input-transcript" },
-    { icon: Upload, label: "Upload Video", path: "/upload" },
-    { icon: Mic, label: "Studio", path: "/studio" },
-  ];
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
-  // Add this check to prevent rendering until we're sure about auth state
   if (!user) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="animate-pulse">Loading...</div>
-    </div>;
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Mobile sidebar toggle */}
-      <Button
-        variant="outline"
-        size="icon"
-        className="fixed top-4 left-4 z-50 lg:hidden"
-        onClick={toggleSidebar}
+    <div className="flex h-screen antialiased">
+      <Sidebar
+        className="md:w-64 border-r flex-col space-y-2 w-full"
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       >
-        {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-      </Button>
-
-      {/* Sidebar */}
-      <aside 
-        className={`
-          bg-sidebar fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ease-in-out 
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-          lg:translate-x-0 border-r border-sidebar-border
-        `}
-      >
-        <div className="p-6">
-          <div className="help-nugget-logo text-sidebar-foreground text-2xl mb-8">
-            Content<span>Factory</span>
+        <div className="flex-1 flex-col justify-between">
+          <div className="space-y-2">
+            <div className="px-4 py-2 flex items-center justify-between">
+              <Link to="/" className="flex items-center font-semibold">
+                <Video className="mr-2 h-6 w-6" />
+                {siteConfig.name}
+              </Link>
+              <ModeToggle />
+            </div>
+            <MainNav className="flex flex-col space-y-1" items={navItems} />
           </div>
-          
-          <nav className="space-y-1">
-            {navItems.map((item) => (
-              <NavLink 
-                key={item.path} 
-                to={item.path}
-                onClick={(e) => handleNavLinkClick(item.path, e)}
-                className={({ isActive }) => `
-                  flex items-center gap-3 px-3 py-2 rounded-md transition-colors
-                  ${isActive 
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground' 
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
-                  }
-                `}
-              >
-                <item.icon size={18} />
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
+          <div className="p-4">
+            <UserNav user={user} logout={logout} />
+          </div>
         </div>
-        
-        <div className="absolute bottom-4 left-0 right-0 px-6">
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-            onClick={handleLogout}
-          >
-            <LogOut size={18} className="mr-2" />
-            Sign out
-          </Button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className={`flex-1 transition-all duration-300 ease-in-out ${sidebarOpen ? 'lg:ml-64' : 'ml-0'}`}>
-        <div className="p-6">
+      </Sidebar>
+      <div className="flex-1">
+        <main className="container relative pb-20">
           <Outlet />
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
