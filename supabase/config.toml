@@ -1,4 +1,69 @@
 
+# A string used to distinguish different Supabase projects on the same host. Defaults to the project ref.
 project_id = "abwzezikbhlpmwbcovvi"
 
-[functions.generate-threads]
+# The port to start the local development server on
+port = 54321
+
+[api]
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+# Email testing server. Emails sent with the local dev setup are not actually delivered, rather they
+# are monitored, and you can view the emails that would have been delivered from the configured URL
+[inbucket]
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+[storage]
+file_size_limit = "50MiB"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 604800
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# Configure one of the supported SMS providers
+# [auth.sms]
+# twilio.enabled = true
+# twilio.account_sid = ""
+# twilio.message_service_sid = ""
+# twilio.auth_token = ""
+
+[auth.external.github]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = ""
+
+[functions]
+serve_port = 54328
+
+[functions.videos]
+verify_jwt = true
+import_map = "./import_map.json"
+
+[functions.clips]
+verify_jwt = true
+import_map = "./import_map.json"
