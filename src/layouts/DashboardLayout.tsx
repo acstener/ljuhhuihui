@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Sidebar } from "@/components/ui/sidebar";
+import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import { siteConfig } from "@/config/site";
 import { Link } from "react-router-dom";
 import { LayoutDashboard, Upload, FileText, Sparkles, Video } from "lucide-react";
@@ -54,30 +54,32 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div className="flex h-screen antialiased">
-      <Sidebar className="md:w-64 border-r flex-col space-y-2 w-full">
-        <div className="flex-1 flex-col justify-between">
-          <div className="space-y-2">
-            <div className="px-4 py-2 flex items-center justify-between">
-              <Link to="/" className="flex items-center font-semibold">
-                <Video className="mr-2 h-6 w-6" />
-                {siteConfig.name}
-              </Link>
-              <ModeToggle />
+    <SidebarProvider>
+      <div className="flex h-screen antialiased w-full">
+        <Sidebar className="md:w-64 border-r flex-col space-y-2 w-full">
+          <div className="flex-1 flex-col justify-between">
+            <div className="space-y-2">
+              <div className="px-4 py-2 flex items-center justify-between">
+                <Link to="/" className="flex items-center font-semibold">
+                  <Video className="mr-2 h-6 w-6" />
+                  {siteConfig.name}
+                </Link>
+                <ModeToggle />
+              </div>
+              <MainNav className="flex flex-col space-y-1" items={navItems} />
             </div>
-            <MainNav className="flex flex-col space-y-1" items={navItems} />
+            <div className="p-4">
+              <UserNav user={user} logout={logout} />
+            </div>
           </div>
-          <div className="p-4">
-            <UserNav user={user} logout={logout} />
-          </div>
+        </Sidebar>
+        <div className="flex-1">
+          <main className="container relative pb-20">
+            <Outlet />
+          </main>
         </div>
-      </Sidebar>
-      <div className="flex-1">
-        <main className="container relative pb-20">
-          <Outlet />
-        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
