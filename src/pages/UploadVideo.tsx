@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,15 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Link as LinkIcon, ArrowRight, Scissors, Video } from "lucide-react";
-import { processVideo } from "@/lib/mockData";
+import { Upload, Link as LinkIcon, ArrowRight } from "lucide-react";
 
 const UploadVideo = () => {
   const [file, setFile] = useState<File | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isGeneratingClips, setIsGeneratingClips] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,7 +45,7 @@ const UploadVideo = () => {
     }
   };
 
-  const handleYoutubeSubmit = async (e: React.FormEvent) => {
+  const handleYoutubeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!youtubeUrl.trim()) {
@@ -69,10 +68,10 @@ const UploadVideo = () => {
       return;
     }
     
-    await processVideoForClips({ youtubeUrl });
+    simulateUpload();
   };
 
-  const handleFileUpload = async () => {
+  const handleFileUpload = () => {
     if (!file) {
       toast({
         variant: "destructive",
@@ -82,61 +81,42 @@ const UploadVideo = () => {
       return;
     }
     
-    await processVideoForClips({ uploadFile: file });
+    simulateUpload();
   };
 
-  const processVideoForClips = async ({ 
-    uploadFile, 
-    youtubeUrl 
-  }: { 
-    uploadFile?: File; 
-    youtubeUrl?: string 
-  }) => {
-    try {
-      setIsUploading(true);
-      setIsGeneratingClips(true);
-      setUploadProgress(0);
-      
-      // Start progress simulation
-      const interval = setInterval(() => {
-        setUploadProgress((prev) => {
-          const newProgress = prev + 2;
-          return newProgress >= 90 ? 90 : newProgress; // Cap at 90% until complete
-        });
-      }, 200);
-
-      // Use our mock function instead of Supabase
-      const { videoId } = await processVideo({ uploadFile, youtubeUrl });
-      
-      clearInterval(interval);
-      setUploadProgress(100);
-      
-      setTimeout(() => {
-        toast({
-          title: "Video processing initiated",
-          description: "We're generating clips from your video. You'll be redirected to the clips page.",
-        });
-        navigate(`/clips?videoId=${videoId}`);
-      }, 500);
-      
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast({
-        variant: "destructive",
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+  // Simulate an upload process for the MVP
+  const simulateUpload = () => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        const newProgress = prev + 5;
+        
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            setIsUploading(false);
+            toast({
+              title: "Upload complete",
+              description: "Your video is now processing",
+            });
+            navigate("/dashboard");
+          }, 500);
+          return 100;
+        }
+        
+        return newProgress;
       });
-      setIsUploading(false);
-      setIsGeneratingClips(false);
-    }
+    }, 200);
   };
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Video Clips Generator</h1>
+        <h1 className="text-3xl font-bold">Upload Video</h1>
         <p className="text-muted-foreground mt-2">
-          Upload a video file or paste a YouTube URL to automatically generate short, branded clips
+          Upload a video file or paste a YouTube URL to get started
         </p>
       </div>
       
@@ -179,13 +159,13 @@ const UploadVideo = () => {
                       accept="video/*"
                       className="hidden"
                       onChange={handleFileChange}
-                      disabled={isUploading || isGeneratingClips}
+                      disabled={isUploading}
                     />
                     <Label htmlFor="video-upload">
                       <Button 
                         variant="outline" 
                         className="cursor-pointer" 
-                        disabled={isUploading || isGeneratingClips}
+                        disabled={isUploading}
                       >
                         Select Video
                       </Button>
@@ -199,34 +179,27 @@ const UploadVideo = () => {
                   <Button 
                     className="w-full" 
                     onClick={handleFileUpload}
-                    disabled={isUploading || isGeneratingClips}
+                    disabled={isUploading}
                   >
-                    {isGeneratingClips ? (
+                    {isUploading ? (
                       <>
-                        Processing ({uploadProgress}%)...
+                        Uploading ({uploadProgress}%)...
                       </>
                     ) : (
                       <>
-                        <Scissors className="mr-2 h-4 w-4" /> Generate Clips <ArrowRight className="ml-2 h-4 w-4" />
+                        Upload Video <ArrowRight className="ml-2 h-4 w-4" />
                       </>
                     )}
                   </Button>
                 </div>
               )}
               
-              {(isUploading || isGeneratingClips) && (
-                <div className="mt-4 space-y-2">
-                  <div className="bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-1.5 bg-primary transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-center text-muted-foreground">
-                    {uploadProgress < 30 ? 'Uploading video...' : 
-                     uploadProgress < 60 ? 'Transcribing content...' : 
-                     uploadProgress < 90 ? 'Generating clips...' : 'Finishing up...'}
-                  </p>
+              {isUploading && (
+                <div className="mt-4 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-1.5 bg-primary transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
                 </div>
               )}
             </CardContent>
@@ -248,7 +221,7 @@ const UploadVideo = () => {
                         className="pl-9"
                         value={youtubeUrl}
                         onChange={(e) => setYoutubeUrl(e.target.value)}
-                        disabled={isUploading || isGeneratingClips}
+                        disabled={isUploading}
                       />
                     </div>
                   </div>
@@ -260,32 +233,25 @@ const UploadVideo = () => {
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={isUploading || isGeneratingClips || !youtubeUrl.trim()}
+                  disabled={isUploading || !youtubeUrl.trim()}
                 >
-                  {isGeneratingClips ? (
+                  {isUploading ? (
                     <>
                       Processing ({uploadProgress}%)...
                     </>
                   ) : (
                     <>
-                      <Scissors className="mr-2 h-4 w-4" /> Generate Clips <ArrowRight className="ml-2 h-4 w-4" />
+                      Process Video <ArrowRight className="ml-2 h-4 w-4" />
                     </>
                   )}
                 </Button>
                 
-                {(isUploading || isGeneratingClips) && (
-                  <div className="mt-2 space-y-2">
-                    <div className="bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-1.5 bg-primary transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-center text-muted-foreground">
-                      {uploadProgress < 30 ? 'Processing YouTube URL...' : 
-                       uploadProgress < 60 ? 'Transcribing content...' : 
-                       uploadProgress < 90 ? 'Generating clips...' : 'Finishing up...'}
-                    </p>
+                {isUploading && (
+                  <div className="mt-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-1.5 bg-primary transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
                   </div>
                 )}
               </form>
@@ -293,24 +259,6 @@ const UploadVideo = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      <div className="bg-muted rounded-lg p-4">
-        <div className="flex items-start">
-          <Video className="h-5 w-5 text-primary mt-0.5 mr-3" />
-          <div>
-            <h3 className="font-medium">How it works</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Upload your video or paste a YouTube URL, and our system will:
-            </p>
-            <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc pl-5">
-              <li>Automatically transcribe your video</li>
-              <li>Extract the most engaging segments</li>
-              <li>Generate 3 branded, subtitled clips</li>
-              <li>Make them available for download</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
