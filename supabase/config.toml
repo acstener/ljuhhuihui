@@ -2,3 +2,9 @@
 project_id = "abwzezikbhlpmwbcovvi"
 
 [functions.generate-threads]
+
+[functions.video-upload]
+
+[functions.video-clipper]
+
+[functions.video-status]

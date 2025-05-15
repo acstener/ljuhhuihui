@@ -13,6 +13,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import UploadVideo from "./pages/UploadVideo";
+import VideoUpload from "./pages/VideoUpload";
+import ClipViewer from "./pages/ClipViewer";
+import ClipsList from "./pages/ClipsList";
 import TranscriptView from "./pages/TranscriptView";
 import ThreadGenerator from "./pages/ThreadGenerator";
 import TranscriptInput from "./pages/TranscriptInput";
@@ -167,7 +170,13 @@ const App = () => {
                       session ? <Dashboard /> : <Navigate to="/login" />
                     } />
                     <Route path="/upload" element={
-                      session ? <UploadVideo /> : <Navigate to="/login" />
+                      session ? <VideoUpload /> : <Navigate to="/login" />
+                    } />
+                    <Route path="/clips" element={
+                      session ? <ClipsList /> : <Navigate to="/login" />
+                    } />
+                    <Route path="/clips/:videoId" element={
+                      session ? <ClipViewer /> : <Navigate to="/login" />
                     } />
                     <Route path="/transcript/:videoId" element={
                       session ? <TranscriptView /> : <Navigate to="/login" />
