@@ -8,3 +8,6 @@ project_id = "abwzezikbhlpmwbcovvi"
 [functions.video-clipper]
 
 [functions.video-status]
+
+[functions.get-videos]
+

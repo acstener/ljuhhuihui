@@ -41,7 +41,7 @@ const ClipViewer = () => {
       }
       
       // Call our video-status function
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/video-status/${videoId}`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-status/${videoId}`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         },

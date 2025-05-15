@@ -9,7 +9,7 @@ import { Upload, Video } from "lucide-react";
 
 interface VideoItem {
   id: string;
-  original_filename: string;
+  original_filename: string | null;
   status: string;
   inserted_at: string;
   clip_url: string | null;
@@ -25,16 +25,27 @@ const ClipsList = () => {
       try {
         setLoading(true);
         
-        const { data, error } = await supabase
-          .from("videos")
-          .select("*")
-          .order("inserted_at", { ascending: false });
-          
-        if (error) {
-          throw error;
+        // Get the authenticated user's token
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          throw new Error("Not authenticated");
         }
         
-        setVideos(data || []);
+        // Call our get-videos function
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-videos`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          },
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to load videos');
+        }
+        
+        const data = await response.json();
+        setVideos(data.videos || []);
       } catch (error: any) {
         toast({
           variant: "destructive",

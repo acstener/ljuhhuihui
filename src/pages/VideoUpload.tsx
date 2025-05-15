@@ -103,7 +103,7 @@ const VideoUpload = () => {
       }, 500);
       
       // Call our video-upload function
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/video-upload`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -128,7 +128,7 @@ const VideoUpload = () => {
       });
       
       // Start clip generation
-      await fetch(`${supabase.supabaseUrl}/functions/v1/video-clipper`, {
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-clipper`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
