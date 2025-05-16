@@ -30,11 +30,9 @@ const TranscriptInput = () => {
     try {
       // Store the transcript in localStorage for the InputTranscript component
       localStorage.setItem("studioTranscript", transcript);
+      console.log("TranscriptInput: Storing transcript in localStorage and navigating");
       
-      // Add console logs for debugging
-      console.log("TranscriptInput: Navigating to input-transcript with transcript:", transcript.substring(0, 50) + "...");
-      
-      // Navigate directly to the input-transcript page and pass the transcript as state
+      // Navigate to the input-transcript page with the transcript as state
       navigate("/input-transcript", { state: { transcript } });
     } catch (error) {
       console.error("Error:", error);
