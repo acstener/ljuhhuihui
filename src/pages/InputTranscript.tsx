@@ -1,11 +1,10 @@
 
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Book, PencilLine, Sparkles } from "lucide-react";
-import { KeyPointsDisplay } from "@/components/KeyPointsDisplay";
 import { StyleSelector } from "@/components/StyleSelector";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -57,7 +56,7 @@ const InputTranscript = () => {
         </p>
       </div>
       
-      {/* Single column layout with transcript editor first, then key points, then style selector */}
+      {/* Single column layout with transcript editor first, then style selector */}
       <div className="space-y-6">
         {/* Transcript editor */}
         <Card>
@@ -75,21 +74,19 @@ const InputTranscript = () => {
               className="min-h-[300px]"
             />
           </CardContent>
-          <CardFooter className="border-t p-4 bg-muted/5 flex justify-between items-center">
-            <div className="text-sm text-muted-foreground">
-              <PencilLine className="h-4 w-4 inline-block mr-1" />
-              You can edit this transcript if needed
-            </div>
-            {initialTranscript && (
+          {initialTranscript && (
+            <div className="border-t p-4 bg-muted/5 flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                <PencilLine className="h-4 w-4 inline-block mr-1" />
+                You can edit this transcript if needed
+              </div>
+              
               <Button variant="outline" size="sm" onClick={() => setTranscript(initialTranscript)}>
                 Reset
               </Button>
-            )}
-          </CardFooter>
+            </div>
+          )}
         </Card>
-        
-        {/* Key points display */}
-        {transcript.trim() && <KeyPointsDisplay transcript={transcript} />}
         
         {/* Style selector card */}
         <Card>
