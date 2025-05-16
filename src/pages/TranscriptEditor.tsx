@@ -35,6 +35,12 @@ const TranscriptEditor = () => {
       setTranscript(location.state.transcript);
       console.log("TranscriptEditor: Loaded transcript from location state");
     }
+
+    // Load previously selected style if available
+    const savedStyle = localStorage.getItem("tweetGenerationStyle");
+    if (savedStyle) {
+      setSelectedStyle(savedStyle);
+    }
   }, [location.state, transcript]);
 
   const handleGenerateThreads = async () => {

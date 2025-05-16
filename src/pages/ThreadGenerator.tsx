@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { StyleSelector } from "@/components/StyleSelector";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Tweet {
   tweet: string;
@@ -33,6 +34,9 @@ const ThreadGenerator = () => {
     if (savedTranscript) {
       setTranscript(savedTranscript);
       setSelectedStyle(savedStyle);
+      
+      // Auto-skip to tweet-generation step if we have data
+      setStep("tweet-generation");
       
       // Auto-generate tweets if we have a transcript already
       generateTweets(savedTranscript, savedStyle);
@@ -180,7 +184,6 @@ const ThreadGenerator = () => {
             </Card>
           </div>
           <div className="hidden lg:block lg:col-span-1">
-            {/* Optional: Show a preview or explanation */}
             <Card>
               <CardHeader>
                 <CardTitle>About Tweet Styles</CardTitle>
@@ -261,18 +264,26 @@ const ThreadGenerator = () => {
         <div className="space-y-4 md:col-span-2">
           {isGenerating ? (
             <div className="space-y-4">
-              {Array(3).fill(0).map((_, i) => (
-                <Card key={i} className="animate-pulse">
+              {Array(5).fill(0).map((_, i) => (
+                <Card key={i} className="border border-muted">
                   <CardHeader className="pb-2">
-                    <div className="h-5 w-24 bg-muted rounded"></div>
+                    <Skeleton className="h-5 w-24" />
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      <div className="h-4 bg-muted rounded w-full"></div>
-                      <div className="h-4 bg-muted rounded w-5/6"></div>
-                      <div className="h-4 bg-muted rounded w-4/6"></div>
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-4/6" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-2/3" />
                     </div>
                   </CardContent>
+                  <CardFooter>
+                    <div className="flex w-full justify-between">
+                      <Skeleton className="h-8 w-16" />
+                      <Skeleton className="h-8 w-16" />
+                    </div>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
@@ -323,7 +334,8 @@ const ThreadGenerator = () => {
             </div>
           ) : (
             <Card className="bg-muted/5">
-              <CardContent className="p-8 text-center">
+              <CardContent className="py-12 text-center">
+                <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-primary" />
                 <p className="text-muted-foreground">
                   {transcript.trim() 
                     ? "Generating tweets from your transcript..." 
