@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, Copy, Download, Edit, Trash, ArrowLeft } from "lucide-react";
+import { Loader2, Check, Copy, Download, Edit, Trash, ArrowLeft, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,7 @@ const ThreadGenerator = () => {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [selectedStyle, setSelectedStyle] = useState<string>("my-voice");
+  const [step, setStep] = useState<"style-selection" | "tweet-generation">("style-selection");
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -32,7 +33,6 @@ const ThreadGenerator = () => {
     if (savedTranscript) {
       setTranscript(savedTranscript);
       setSelectedStyle(savedStyle);
-      generateTweets(savedTranscript, savedStyle);
     }
   }, []);
   
@@ -61,6 +61,7 @@ const ThreadGenerator = () => {
       
       if (data && Array.isArray(data.tweets)) {
         setTweets(data.tweets);
+        setStep("tweet-generation"); // Move to tweet viewing after generation
       } else {
         throw new Error("Invalid response format from tweet generation");
       }
@@ -120,13 +121,79 @@ const ThreadGenerator = () => {
   const handleStyleChange = (newStyle: string) => {
     setSelectedStyle(newStyle);
     localStorage.setItem("tweetGenerationStyle", newStyle);
-    generateTweets(transcript, newStyle);
   };
   
   const handleBackToTranscript = () => {
     navigate("/input-transcript", { state: { transcript } });
   };
 
+  // Step 1: Style Selection
+  if (step === "style-selection") {
+    return (
+      <div className="space-y-6 pb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Select Your Tweet Style</h1>
+          <p className="text-muted-foreground mt-1">
+            Choose a style for your tweet thread before generating
+          </p>
+        </div>
+        
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+          <div className="space-y-4 md:col-span-1 lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tweet Style</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StyleSelector 
+                  selectedStyle={selectedStyle}
+                  onChange={handleStyleChange}
+                />
+              </CardContent>
+              <CardFooter className="flex justify-between border-t pt-6">
+                <Button variant="outline" onClick={handleBackToTranscript}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Transcript
+                </Button>
+                <Button 
+                  onClick={() => generateTweets()}
+                  disabled={isGenerating || !transcript.trim()}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating Tweets...
+                    </>
+                  ) : (
+                    <>
+                      Generate Tweets 
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+          <div className="hidden lg:block lg:col-span-1">
+            {/* Optional: Show a preview or explanation */}
+            <Card>
+              <CardHeader>
+                <CardTitle>About Tweet Styles</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Each style represents a unique voice and approach to creating content.
+                  Select the style that best matches how you want your tweets to sound.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 2: Tweet Generation Result
   return (
     <div className="space-y-6 pb-8">
       <div>
@@ -144,21 +211,20 @@ const ThreadGenerator = () => {
               <CardTitle>Tweet Style</CardTitle>
             </CardHeader>
             <CardContent>
-              <StyleSelector 
-                selectedStyle={selectedStyle}
-                onChange={handleStyleChange}
-              />
+              <p className="text-muted-foreground mb-4">
+                Current style: <strong>{selectedStyle}</strong>
+              </p>
             </CardContent>
             <CardFooter className="flex justify-between border-t pt-4">
-              <Button variant="outline" onClick={handleBackToTranscript}>
+              <Button variant="outline" onClick={() => setStep("style-selection")}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Transcript
+                Change Style
               </Button>
               <Button onClick={handleRegenerateTweets} disabled={isGenerating}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating...
+                    Regenerating...
                   </>
                 ) : (
                   <>

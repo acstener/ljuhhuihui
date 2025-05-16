@@ -6,7 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Book, PencilLine } from "lucide-react";
 import { KeyPointsDisplay } from "@/components/KeyPointsDisplay";
-import { StyleSelector } from "@/components/StyleSelector";
 
 const InputTranscript = () => {
   const location = useLocation();
@@ -15,16 +14,14 @@ const InputTranscript = () => {
     localStorage.getItem("studioTranscript") || "";
   
   const [transcript, setTranscript] = useState<string>(initialTranscript);
-  const [selectedStyle, setSelectedStyle] = useState("my-voice");
   
   const handleSubmit = () => {
     if (!transcript.trim()) {
       return;
     }
     
-    // Store the transcript and style for tweet generation
+    // Store the transcript for tweet generation
     localStorage.setItem("tweetGenerationTranscript", transcript);
-    localStorage.setItem("tweetGenerationStyle", selectedStyle);
     
     // Navigate to the thread generator
     navigate("/generate/123");
@@ -35,7 +32,7 @@ const InputTranscript = () => {
       <div>
         <h1 className="text-3xl font-bold">Transcript Review</h1>
         <p className="text-muted-foreground mt-1">
-          Review your transcript and select a style for your tweet thread
+          Review your transcript before proceeding to tweet generation
         </p>
       </div>
       
@@ -67,28 +64,26 @@ const InputTranscript = () => {
           </CardFooter>
         </Card>
         
-        {/* Key points and style selection */}
+        {/* Key points and next step button */}
         <div className="space-y-6">
           <KeyPointsDisplay transcript={transcript} />
           
           <Card>
             <CardContent className="p-6">
-              <StyleSelector 
-                selectedStyle={selectedStyle}
-                onChange={setSelectedStyle}
-              />
+              <p className="text-base mb-4">
+                Ready to turn your transcript into a tweet thread?
+              </p>
+              <Button 
+                className="w-full"
+                size="lg"
+                onClick={handleSubmit}
+                disabled={!transcript.trim()}
+              >
+                Continue to Style Selection
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </CardContent>
           </Card>
-          
-          <Button 
-            className="w-full"
-            size="lg"
-            onClick={handleSubmit}
-            disabled={!transcript.trim()}
-          >
-            Generate Tweet Thread
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
         </div>
       </div>
     </div>
