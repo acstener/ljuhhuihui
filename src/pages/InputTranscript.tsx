@@ -18,6 +18,7 @@ const InputTranscript = () => {
   
   const [transcript, setTranscript] = useState<string>(initialTranscript);
   const [selectedStyle, setSelectedStyle] = useState<string>("my-voice");
+  const [isGenerating, setIsGenerating] = useState(false);
   
   useEffect(() => {
     // Make sure we have the latest transcript from localStorage
@@ -37,6 +38,8 @@ const InputTranscript = () => {
       return;
     }
     
+    setIsGenerating(true);
+    
     // Store the transcript and style for tweet generation
     localStorage.setItem("tweetGenerationTranscript", transcript);
     localStorage.setItem("tweetGenerationStyle", selectedStyle);
@@ -54,7 +57,7 @@ const InputTranscript = () => {
         </p>
       </div>
       
-      {/* Single column layout with transcript editor first, then style selector */}
+      {/* Single column layout with transcript editor first, then key points, then style selector */}
       <div className="space-y-6">
         {/* Transcript editor */}
         <Card>
@@ -86,7 +89,7 @@ const InputTranscript = () => {
         </Card>
         
         {/* Key points display */}
-        <KeyPointsDisplay transcript={transcript} />
+        {transcript.trim() && <KeyPointsDisplay transcript={transcript} />}
         
         {/* Style selector card */}
         <Card>
@@ -114,10 +117,16 @@ const InputTranscript = () => {
               className="w-full"
               size="lg"
               onClick={handleSubmit}
-              disabled={!transcript.trim()}
+              disabled={!transcript.trim() || isGenerating}
             >
-              Generate Tweet Thread
-              <ArrowRight className="ml-2 h-4 w-4" />
+              {isGenerating ? (
+                <>Generating Tweet Thread...</>
+              ) : (
+                <>
+                  Generate Tweet Thread
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>

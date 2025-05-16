@@ -1,6 +1,6 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,25 +9,9 @@ import { Loader2, FileText, ArrowRight } from "lucide-react";
 
 const TranscriptInput = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
   const [transcript, setTranscript] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Check if there's transcript data in location state (from Studio)
-  useEffect(() => {
-    if (location.state?.transcript) {
-      setTranscript(location.state.transcript);
-    } else {
-      // Check if there's transcript in localStorage (from Studio)
-      const savedTranscript = localStorage.getItem("studioTranscript");
-      if (savedTranscript) {
-        setTranscript(savedTranscript);
-        // Clear it so it doesn't persist across refreshes
-        localStorage.removeItem("studioTranscript");
-      }
-    }
-  }, [location.state]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +31,7 @@ const TranscriptInput = () => {
       // Store the transcript in localStorage for the InputTranscript component
       localStorage.setItem("studioTranscript", transcript);
       
-      // Navigate to the input transcript page
+      // Navigate directly to the input-transcript page
       navigate("/input-transcript", { state: { transcript } });
     } catch (error) {
       console.error("Error:", error);

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Mic, MicOff, Headphones, Send, ArrowRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
+import { useToast } from "@/components/ui/use-toast";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -22,6 +22,8 @@ const Studio = () => {
     sendTextMessage,
   } = useElevenConversation();
   
+  const { toast } = useToast();
+  
   // Navigation
   const navigate = useNavigate();
   
@@ -36,6 +38,11 @@ const Studio = () => {
   
   const useTranscript = () => {
     if (!transcriptRef.current.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Empty Transcript",
+        description: "Please have a conversation first or enter some content."
+      });
       return;
     }
 
