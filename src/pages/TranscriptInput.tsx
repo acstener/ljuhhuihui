@@ -31,7 +31,10 @@ const TranscriptInput = () => {
       // Store the transcript in localStorage for the InputTranscript component
       localStorage.setItem("studioTranscript", transcript);
       
-      // Navigate directly to the input-transcript page
+      // Add console logs for debugging
+      console.log("TranscriptInput: Navigating to input-transcript with transcript:", transcript.substring(0, 50) + "...");
+      
+      // Navigate directly to the input-transcript page and pass the transcript as state
       navigate("/input-transcript", { state: { transcript } });
     } catch (error) {
       console.error("Error:", error);
@@ -85,7 +88,7 @@ const TranscriptInput = () => {
                 </>
               ) : (
                 <>
-                  Continue
+                  Continue to Style Selection
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}

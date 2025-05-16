@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Book, PencilLine, Sparkles } from "lucide-react";
+import { ArrowRight, Book, PencilLine, Sparkles, Loader2 } from "lucide-react";
 import { StyleSelector } from "@/components/StyleSelector";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -12,20 +12,32 @@ const InputTranscript = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  console.log("InputTranscript: Location state received:", location.state);
+  
+  // Get transcript from state or localStorage
   const initialTranscript = location.state?.transcript || 
     localStorage.getItem("studioTranscript") || "";
+  
+  console.log("InputTranscript: Initial transcript length:", initialTranscript.length);
   
   const [transcript, setTranscript] = useState<string>(initialTranscript);
   const [selectedStyle, setSelectedStyle] = useState<string>("my-voice");
   const [isGenerating, setIsGenerating] = useState(false);
   
   useEffect(() => {
-    // Make sure we have the latest transcript from localStorage
+    // Make sure we have the latest transcript from localStorage or state
     const savedTranscript = localStorage.getItem("studioTranscript");
     if (savedTranscript && !transcript) {
       setTranscript(savedTranscript);
+      console.log("InputTranscript: Loaded transcript from localStorage");
     }
-  }, [transcript]);
+    
+    if (location.state?.transcript && !transcript) {
+      setTranscript(location.state.transcript);
+      console.log("InputTranscript: Loaded transcript from location state");
+    }
+  }, [location.state, transcript]);
   
   const handleSubmit = () => {
     if (!transcript.trim()) {
@@ -42,6 +54,8 @@ const InputTranscript = () => {
     // Store the transcript and style for tweet generation
     localStorage.setItem("tweetGenerationTranscript", transcript);
     localStorage.setItem("tweetGenerationStyle", selectedStyle);
+    
+    console.log("InputTranscript: Generating tweets with style:", selectedStyle);
     
     // Navigate to the thread generator
     navigate("/generate/123");
@@ -65,6 +79,9 @@ const InputTranscript = () => {
               <Book className="h-5 w-5" />
               Input Transcript
             </CardTitle>
+            <CardDescription>
+              Edit your transcript if needed before generating tweets
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
@@ -95,6 +112,9 @@ const InputTranscript = () => {
               <Sparkles className="h-5 w-5" />
               Tweet Style
             </CardTitle>
+            <CardDescription>
+              Choose how you want your tweets to sound
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <StyleSelector 
@@ -117,7 +137,10 @@ const InputTranscript = () => {
               disabled={!transcript.trim() || isGenerating}
             >
               {isGenerating ? (
-                <>Generating Tweet Thread...</>
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating Tweet Thread...
+                </>
               ) : (
                 <>
                   Generate Tweet Thread
