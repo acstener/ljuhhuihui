@@ -49,8 +49,8 @@ const Studio = () => {
     // Save transcript to localStorage to be processed
     localStorage.setItem("studioTranscript", transcriptRef.current);
     
-    // Navigate to the input transcript page
-    navigate("/input-transcript", { 
+    // Navigate to the new transcript editor page
+    navigate("/transcript-editor", { 
       state: { transcript: transcriptRef.current }
     });
   };

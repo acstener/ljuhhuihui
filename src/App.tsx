@@ -1,10 +1,9 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from "./integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
@@ -16,6 +15,7 @@ import UploadVideo from "./pages/UploadVideo";
 import TranscriptView from "./pages/TranscriptView";
 import ThreadGenerator from "./pages/ThreadGenerator";
 import TranscriptInput from "./pages/TranscriptInput";
+import TranscriptEditor from "./pages/TranscriptEditor"; // Import the new page
 import Studio from "./pages/Studio";
 import NotFound from "./pages/NotFound";
 import AuthLayout from "./layouts/AuthLayout";
@@ -177,6 +177,9 @@ const App = () => {
                     } />
                     <Route path="/input-transcript" element={
                       session ? <TranscriptInput /> : <Navigate to="/login" />
+                    } />
+                    <Route path="/transcript-editor" element={
+                      session ? <TranscriptEditor /> : <Navigate to="/login" />
                     } />
                     <Route path="/studio" element={
                       session ? <Studio /> : <Navigate to="/login" />

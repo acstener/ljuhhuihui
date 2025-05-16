@@ -28,12 +28,12 @@ const TranscriptInput = () => {
     setIsProcessing(true);
     
     try {
-      // Store the transcript in localStorage for the InputTranscript component
+      // Store the transcript in localStorage for the TranscriptEditor component
       localStorage.setItem("studioTranscript", transcript);
-      console.log("TranscriptInput: Storing transcript in localStorage and navigating");
+      console.log("TranscriptInput: Storing transcript in localStorage and navigating to new route");
       
-      // Navigate to the input-transcript page with the transcript as state
-      navigate("/input-transcript", { state: { transcript } });
+      // Navigate to the new transcript-editor page with the transcript as state
+      navigate("/transcript-editor", { state: { transcript } });
     } catch (error) {
       console.error("Error:", error);
       toast({
