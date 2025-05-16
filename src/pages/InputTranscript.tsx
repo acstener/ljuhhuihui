@@ -17,6 +17,14 @@ const InputTranscript = () => {
   const [transcript, setTranscript] = useState<string>(initialTranscript);
   const [selectedStyle, setSelectedStyle] = useState<string>("my-voice");
   
+  useEffect(() => {
+    // Make sure we have the latest transcript from localStorage
+    const savedTranscript = localStorage.getItem("studioTranscript");
+    if (savedTranscript && !transcript) {
+      setTranscript(savedTranscript);
+    }
+  }, [transcript]);
+  
   const handleSubmit = () => {
     if (!transcript.trim()) {
       return;
@@ -35,7 +43,7 @@ const InputTranscript = () => {
       <div>
         <h1 className="text-3xl font-bold">Create Tweet Thread</h1>
         <p className="text-muted-foreground mt-1">
-          Review your transcript, select a style, and generate your tweets - all in one place
+          Enter a transcript or long-form text to generate tweet threads
         </p>
       </div>
       
@@ -46,15 +54,15 @@ const InputTranscript = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Book className="h-5 w-5" />
-                Interview Transcript
+                Input Transcript
               </CardTitle>
             </CardHeader>
             <CardContent>
               <Textarea
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
-                placeholder="Your interview transcript will appear here. You can edit it if needed."
-                className="min-h-[200px]"
+                placeholder="Paste your transcript or long-form text here..."
+                className="min-h-[300px]"
               />
             </CardContent>
             <CardFooter className="border-t p-4 bg-muted/5 flex justify-between items-center">
@@ -62,9 +70,11 @@ const InputTranscript = () => {
                 <PencilLine className="h-4 w-4 inline-block mr-1" />
                 You can edit this transcript if needed
               </div>
-              <Button variant="outline" size="sm" onClick={() => setTranscript(initialTranscript)}>
-                Reset
-              </Button>
+              {initialTranscript && (
+                <Button variant="outline" size="sm" onClick={() => setTranscript(initialTranscript)}>
+                  Reset
+                </Button>
+              )}
             </CardFooter>
           </Card>
           

@@ -45,32 +45,17 @@ const TranscriptInput = () => {
     setIsGenerating(true);
     
     try {
-      // Call the Supabase Edge Function to generate threads
-      const { data, error } = await supabase.functions.invoke('generate-threads', {
-        body: { transcript },
-      });
+      // Store the transcript in localStorage for the InputTranscript component
+      localStorage.setItem("studioTranscript", transcript);
       
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      // Store the generated threads in localStorage for now
-      // In a real app, you would save this to a database
-      localStorage.setItem('generatedThreads', JSON.stringify(data));
-      
-      toast({
-        title: "Threads Generated",
-        description: "Your tweet threads have been generated successfully!",
-      });
-      
-      // Navigate to the ThreadGenerator page to view and edit the threads
-      navigate('/generate/new');
+      // Navigate to the input transcript page for style selection and generation
+      navigate("/input-transcript", { state: { transcript } });
     } catch (error) {
-      console.error("Error generating threads:", error);
+      console.error("Error:", error);
       toast({
         variant: "destructive",
-        title: "Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate threads. Please try again.",
+        title: "Error Occurred",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
       });
     } finally {
       setIsGenerating(false);
@@ -113,11 +98,11 @@ const TranscriptInput = () => {
               {isGenerating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating Threads...
+                  Processing...
                 </>
               ) : (
                 <>
-                  Generate Tweet Threads
+                  Continue to Style Selection
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
