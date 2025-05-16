@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Book, PencilLine } from "lucide-react";
+import { ArrowRight, Book, PencilLine, Sparkles } from "lucide-react";
 import { KeyPointsDisplay } from "@/components/KeyPointsDisplay";
 import { StyleSelector } from "@/components/StyleSelector";
 
@@ -35,11 +35,11 @@ const InputTranscript = () => {
       <div>
         <h1 className="text-3xl font-bold">Create Tweet Thread</h1>
         <p className="text-muted-foreground mt-1">
-          Review your transcript and select a style for your tweets
+          Review your transcript, select a style, and generate your tweets - all in one place
         </p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left column: Transcript editor */}
         <div className="space-y-6">
           <Card>
@@ -54,7 +54,7 @@ const InputTranscript = () => {
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
                 placeholder="Your interview transcript will appear here. You can edit it if needed."
-                className="min-h-[300px]"
+                className="min-h-[200px]"
               />
             </CardContent>
             <CardFooter className="border-t p-4 bg-muted/5 flex justify-between items-center">
@@ -76,7 +76,10 @@ const InputTranscript = () => {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Tweet Style</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Tweet Style
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <StyleSelector 
