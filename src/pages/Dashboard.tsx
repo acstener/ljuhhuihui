@@ -7,7 +7,6 @@ import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar } from "lucide-reac
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/App";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { formatDate } from "@/lib/utils";
 
 const mockSessions = [
@@ -17,8 +16,7 @@ const mockSessions = [
     duration: "24 min",
     created: "2023-05-10T12:00:00Z",
     participants: 3,
-    messages: 42,
-    thumbnail: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YnVzaW5lc3MlMjBtZWV0aW5nfGVufDB8fDB8fHww"
+    messages: 42
   },
   {
     id: "2",
@@ -26,8 +24,7 @@ const mockSessions = [
     duration: "42 min",
     created: "2023-05-08T15:30:00Z",
     participants: 4,
-    messages: 68,
-    thumbnail: "https://images.unsplash.com/photo-1527525443983-6e60c75fff46?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGNvbnRlbnQlMjBtYXJrZXRpbmd8ZW58MHx8MHx8fDA%3D"
+    messages: 68
   },
   {
     id: "3",
@@ -35,8 +32,7 @@ const mockSessions = [
     duration: "38 min",
     created: "2023-05-05T09:15:00Z",
     participants: 6,
-    messages: 53,
-    thumbnail: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8YnVzaW5lc3MlMjBtZWV0aW5nfGVufDB8fDB8fHww"
+    messages: 53
   }
 ];
 
@@ -118,28 +114,22 @@ const Dashboard = () => {
           </Card>
           
           {sessions.map((session) => (
-            <Card key={session.id} className="overflow-hidden border bg-card hover:shadow-md transition-all">
-              <div className="relative">
-                <AspectRatio ratio={16/9}>
-                  <img 
-                    src={session.thumbnail} 
-                    alt={session.title}
-                    className="w-full h-full object-cover"
-                  />
-                </AspectRatio>
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md">
-                  {session.duration}
+            <Card key={session.id} className="border bg-card hover:shadow-md transition-all">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg font-medium line-clamp-1">{session.title}</CardTitle>
+                    <CardDescription className="flex items-center text-xs mt-1">
+                      <Clock className="h-3 w-3 mr-1 opacity-70" /> {formatDate(session.created)}
+                    </CardDescription>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {session.duration}
+                  </Badge>
                 </div>
-              </div>
-              
-              <CardHeader className="pb-2 pt-4">
-                <CardTitle className="text-lg font-medium line-clamp-1">{session.title}</CardTitle>
-                <CardDescription className="flex items-center text-xs">
-                  <Clock className="h-3 w-3 mr-1 opacity-70" /> {formatDate(session.created)}
-                </CardDescription>
               </CardHeader>
               
-              <CardContent className="pb-2 pt-0">
+              <CardContent className="pt-0">
                 <div className="flex items-center text-sm text-muted-foreground">
                   <span className="flex items-center">
                     <MessageSquare className="h-3.5 w-3.5 mr-1" />
