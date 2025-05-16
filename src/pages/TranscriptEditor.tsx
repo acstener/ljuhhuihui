@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { StyleSelector } from "@/components/StyleSelector";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, FileText } from "lucide-react";
 
 const TranscriptEditor = () => {
@@ -37,7 +37,7 @@ const TranscriptEditor = () => {
     }
   }, [location.state, transcript]);
 
-  const handleGenerateThreads = () => {
+  const handleGenerateThreads = async () => {
     if (!transcript.trim()) {
       toast({
         variant: "destructive",
@@ -47,23 +47,12 @@ const TranscriptEditor = () => {
       return;
     }
     
-    setIsGenerating(true);
-    
     // Save transcript and style in localStorage for the ThreadGenerator
     localStorage.setItem("tweetGenerationTranscript", transcript);
     localStorage.setItem("tweetGenerationStyle", selectedStyle);
     
-    // Simulate generation (replace with actual API call later)
-    setTimeout(() => {
-      toast({
-        title: "Tweet Thread Generated",
-        description: "Your thread has been generated successfully!",
-      });
-      
-      setIsGenerating(false);
-      // Navigate to the thread generator page instead of dashboard
-      navigate("/generate/new");
-    }, 2000);
+    // Navigate directly to tweet generation page
+    navigate("/generate/new");
   };
   
   return (

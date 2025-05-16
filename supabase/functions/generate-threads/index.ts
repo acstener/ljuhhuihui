@@ -25,10 +25,35 @@ serve(async (req) => {
   }
 
   try {
+    // Check if OpenAI API key is available
+    if (!openAIApiKey) {
+      console.error("OpenAI API key is not set");
+      return new Response(
+        JSON.stringify({ 
+          error: "API key not configured",
+          tweets: [] 
+        }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const { transcript, styleId = "my-voice", count = 5 } = await req.json();
 
     if (!transcript || transcript.trim().length === 0) {
-      throw new Error("Transcript is empty or not provided");
+      console.error("Empty transcript provided");
+      return new Response(
+        JSON.stringify({ 
+          error: "Transcript is empty or not provided",
+          tweets: [] 
+        }), 
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     console.log("Generating tweets with style:", styleId, { transcriptLength: transcript.length });
@@ -56,13 +81,15 @@ serve(async (req) => {
             3. Be attention-grabbing and shareable
             4. Follow the specified style guidance
             
-            Format your response as a JSON array of tweet objects with this structure:
-            [
-              {
-                "tweet": "The tweet text here",
-                "topic": "Brief topic label (3 words max)"
-              }
-            ]`
+            Format your response as a JSON object with a "tweets" field containing an array of tweet objects with this structure:
+            {
+              "tweets": [
+                {
+                  "tweet": "The tweet text here",
+                  "topic": "Brief topic label (3 words max)"
+                }
+              ]
+            }`
           },
           { role: 'user', content: transcript }
         ],
@@ -73,33 +100,87 @@ serve(async (req) => {
     const data = await response.json();
     
     if (!data.choices || !data.choices[0]?.message?.content) {
-      throw new Error("Failed to generate tweets from OpenAI");
+      console.error("Failed to get proper response from OpenAI:", data);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to generate tweets from OpenAI", 
+          details: data,
+          tweets: [] 
+        }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const content = data.choices[0].message.content;
+    console.log("Raw OpenAI response content:", content);
     
     // Parse the JSON response
-    let tweets;
+    let tweets = [];
     try {
       const parsedContent = JSON.parse(content);
-      tweets = parsedContent.tweets || [];
+      
+      if (parsedContent && Array.isArray(parsedContent.tweets)) {
+        tweets = parsedContent.tweets;
+      } else if (Array.isArray(parsedContent)) {
+        // Handle case where OpenAI might just return an array
+        tweets = parsedContent;
+      } else {
+        console.error("Unexpected response format:", parsedContent);
+        throw new Error("Invalid response format");
+      }
       
       if (!Array.isArray(tweets)) {
         throw new Error("Tweets is not an array");
       }
+
+      // If we got empty tweets, provide fallbacks
+      if (tweets.length === 0) {
+        tweets = [
+          {
+            tweet: "This is a sample tweet generated as a fallback. The API didn't return any tweets.",
+            topic: "Sample Tweet"
+          },
+          {
+            tweet: "Another example tweet to show you the formatting. You can regenerate to get real tweets.",
+            topic: "Example"
+          }
+        ];
+      }
     } catch (error) {
-      console.error("Error parsing tweets JSON:", error);
-      throw new Error("Failed to parse tweets from OpenAI response");
+      console.error("Error parsing tweets JSON:", error, "Raw content:", content);
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to parse tweets from OpenAI response",
+          rawContent: content,
+          tweets: [] 
+        }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    return new Response(JSON.stringify({ tweets }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
+    return new Response(
+      JSON.stringify({ tweets }), 
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error: any) {
     console.error('Error in generate-threads function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        tweets: [] 
+      }), 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 });

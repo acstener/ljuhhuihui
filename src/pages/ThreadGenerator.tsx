@@ -33,6 +33,9 @@ const ThreadGenerator = () => {
     if (savedTranscript) {
       setTranscript(savedTranscript);
       setSelectedStyle(savedStyle);
+      
+      // Auto-generate tweets if we have a transcript already
+      generateTweets(savedTranscript, savedStyle);
     }
   }, []);
   
@@ -59,11 +62,13 @@ const ThreadGenerator = () => {
       
       if (error) throw new Error(error.message);
       
+      console.log("Response from generate-threads:", data);
+      
       if (data && Array.isArray(data.tweets)) {
         setTweets(data.tweets);
         setStep("tweet-generation"); // Move to tweet viewing after generation
       } else {
-        throw new Error("Invalid response format from tweet generation");
+        throw new Error("Invalid response format from tweet generation. Expected tweets array.");
       }
     } catch (err: any) {
       console.error("Failed to generate tweets:", err);
@@ -124,7 +129,7 @@ const ThreadGenerator = () => {
   };
   
   const handleBackToTranscript = () => {
-    navigate("/input-transcript", { state: { transcript } });
+    navigate("/transcript-editor", { state: { transcript } });
   };
 
   // Step 1: Style Selection
