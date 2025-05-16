@@ -4,7 +4,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
 import { 
-  Home, Upload, Menu, X, LogOut, FileText, Mic
+  Home, Menu, X, LogOut, FileText, Mic
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -57,7 +57,6 @@ const DashboardLayout = () => {
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: FileText, label: "Input Transcript", path: "/input-transcript" },
-    { icon: Upload, label: "Upload Video", path: "/upload" },
     { icon: Mic, label: "Studio", path: "/studio" },
   ];
 

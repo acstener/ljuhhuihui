@@ -3,72 +3,69 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileVideo, Upload, Clock, Check, X, FileText, Plus, Sparkles } from "lucide-react";
+import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/App";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { formatDuration, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
-const mockVideos = [
+const mockSessions = [
   {
     id: "1",
-    title: "How to Use React Hooks",
-    status: "complete",
-    duration: 325,
+    title: "Product Launch Strategy",
+    duration: "24 min",
     created: "2023-05-10T12:00:00Z",
-    thumbnail: "https://images.unsplash.com/photo-1551033406-611cf9a28f67?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fGNvZGluZ3xlbnwwfHwwfHx8MA%3D%3D"
+    participants: 3,
+    messages: 42,
+    thumbnail: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YnVzaW5lc3MlMjBtZWV0aW5nfGVufDB8fDB8fHww"
   },
   {
     id: "2",
-    title: "Typescript Tips and Tricks",
-    status: "processing",
-    progress: 60,
-    duration: 542,
+    title: "Content Marketing Planning",
+    duration: "42 min",
     created: "2023-05-08T15:30:00Z",
-    thumbnail: "https://images.unsplash.com/photo-1566837945700-30057527ade0?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGNvZGluZ3xlbnwwfHwwfHx8MA%3D%3D"
+    participants: 4,
+    messages: 68,
+    thumbnail: "https://images.unsplash.com/photo-1527525443983-6e60c75fff46?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGNvbnRlbnQlMjBtYXJrZXRpbmd8ZW58MHx8MHx8fDA%3D"
   },
   {
     id: "3",
-    title: "Next.js Authentication Strategies",
-    status: "failed",
-    duration: 420,
+    title: "Quarterly Goals Review",
+    duration: "38 min",
     created: "2023-05-05T09:15:00Z",
-    thumbnail: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y29kaW5nfGVufDB8fDB8fHww"
+    participants: 6,
+    messages: 53,
+    thumbnail: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8YnVzaW5lc3MlMjBtZWV0aW5nfGVufDB8fDB8fHww"
   }
 ];
 
 const Dashboard = () => {
-  const [videos, setVideos] = useState(mockVideos);
+  const [sessions, setSessions] = useState(mockSessions);
   const { user } = useAuth();
   
   useEffect(() => {
     if (user?.id) {
-      console.log("User authenticated, fetching videos for:", user.id);
+      console.log("User authenticated, fetching sessions for:", user.id);
+      // In a real implementation, we would fetch sessions from the database here
     }
   }, [user?.id]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Your Content</h1>
-        <p className="text-muted-foreground">Manage and create content for your audience</p>
+        <h1 className="text-3xl font-semibold tracking-tight">Your Jam Sessions</h1>
+        <p className="text-muted-foreground">Review and continue your previous sessions</p>
       </div>
       
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-border/40">
         <div className="flex items-center space-x-2">
           <Badge variant="outline" className="px-3 py-1 text-xs font-medium">
-            {videos.length} Items
+            {sessions.length} Sessions
           </Badge>
           <Badge variant="secondary" className="px-3 py-1 text-xs font-medium">
-            <Check className="w-3 h-3 mr-1" /> {videos.filter(v => v.status === 'complete').length} Complete
+            <Calendar className="w-3 h-3 mr-1" /> Last 30 days
           </Badge>
-          {videos.filter(v => v.status === 'processing').length > 0 && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 px-3 py-1 text-xs font-medium">
-              <Clock className="w-3 h-3 mr-1" /> {videos.filter(v => v.status === 'processing').length} Processing
-            </Badge>
-          )}
         </div>
         
         <div className="flex gap-2">
@@ -79,117 +76,84 @@ const Dashboard = () => {
             </Button>
           } />
           
-          <Button variant="outline" size="sm" className="h-9" asChild>
-            <Link to="/input-transcript">
-              <FileText className="mr-2 h-4 w-4" />
-              Text Input
-            </Link>
-          </Button>
-          
           <Button size="sm" className="h-9" asChild>
-            <Link to="/upload">
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Video
+            <Link to="/studio">
+              <Mic className="mr-2 h-4 w-4" />
+              New Session
             </Link>
           </Button>
         </div>
       </div>
 
-      {videos.length === 0 ? (
+      {sessions.length === 0 ? (
         <Card className="border-dashed bg-background/50">
           <CardContent className="pt-10 pb-10 flex flex-col items-center justify-center text-center">
             <div className="rounded-full bg-primary/10 p-4 mb-5">
-              <FileVideo className="h-8 w-8 text-primary" />
+              <Mic className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-xl font-medium mb-2">No content yet</h3>
+            <h3 className="text-xl font-medium mb-2">No jam sessions yet</h3>
             <p className="text-muted-foreground max-w-md mb-6">
-              Upload a video or input text to start creating engaging content for your audience
+              Start a new session to collaborate with your team and AI assistants
             </p>
-            <div className="flex gap-3">
-              <Button asChild>
-                <Link to="/upload">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Video
-                </Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/input-transcript">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Text Input
-                </Link>
-              </Button>
-            </div>
+            <Button asChild>
+              <Link to="/studio">
+                <Mic className="mr-2 h-4 w-4" />
+                Start New Session
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <Card className="border-dashed bg-background/50 hover:bg-background/80 transition-colors group">
-            <Link to="/upload" className="block h-full">
+            <Link to="/studio" className="block h-full">
               <CardContent className="flex flex-col items-center justify-center h-full p-8">
                 <div className="rounded-full bg-primary/10 p-4 mb-4 group-hover:bg-primary/20 transition-colors">
                   <Plus className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-lg font-medium">Add New Content</h3>
-                <p className="text-sm text-muted-foreground mt-1">Upload a video or input text</p>
+                <h3 className="text-lg font-medium">Start New Session</h3>
+                <p className="text-sm text-muted-foreground mt-1">Collaborate with your team and AI</p>
               </CardContent>
             </Link>
           </Card>
           
-          {videos.map((video) => (
-            <Card key={video.id} className="overflow-hidden border bg-card hover:shadow-md transition-all">
+          {sessions.map((session) => (
+            <Card key={session.id} className="overflow-hidden border bg-card hover:shadow-md transition-all">
               <div className="relative">
                 <AspectRatio ratio={16/9}>
                   <img 
-                    src={video.thumbnail} 
-                    alt={video.title}
+                    src={session.thumbnail} 
+                    alt={session.title}
                     className="w-full h-full object-cover"
                   />
                 </AspectRatio>
                 <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md">
-                  {formatDuration(video.duration)}
-                </div>
-                <div className="absolute top-2 right-2">
-                  <StatusBadge status={video.status} />
+                  {session.duration}
                 </div>
               </div>
               
               <CardHeader className="pb-2 pt-4">
-                <CardTitle className="text-lg font-medium line-clamp-1">{video.title}</CardTitle>
+                <CardTitle className="text-lg font-medium line-clamp-1">{session.title}</CardTitle>
                 <CardDescription className="flex items-center text-xs">
-                  <Clock className="h-3 w-3 mr-1 opacity-70" /> {formatDate(video.created)}
+                  <Clock className="h-3 w-3 mr-1 opacity-70" /> {formatDate(session.created)}
                 </CardDescription>
               </CardHeader>
               
-              {video.status === "processing" && (
-                <CardContent className="pb-2 pt-0">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium">Processing</span>
-                      <span className="text-muted-foreground">{video.progress}%</span>
-                    </div>
-                    <Progress value={video.progress} className="h-1" />
-                  </div>
-                </CardContent>
-              )}
+              <CardContent className="pb-2 pt-0">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <span className="flex items-center">
+                    <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                    {session.messages} messages
+                  </span>
+                </div>
+              </CardContent>
               
               <CardFooter className="pt-0">
-                {video.status === "complete" ? (
-                  <Button asChild className="w-full" size="sm">
-                    <Link to={`/transcript/${video.id}`}>
-                      View Transcript
-                    </Link>
-                  </Button>
-                ) : video.status === "failed" ? (
-                  <Button variant="destructive" className="w-full" size="sm">
-                    <X className="mr-2 h-4 w-4" />
-                    Retry Processing
-                  </Button>
-                ) : (
-                  <Button disabled className="w-full" size="sm">
-                    <Clock className="mr-2 h-4 w-4 animate-pulse" />
-                    Processing...
-                  </Button>
-                )}
+                <Button asChild className="w-full" size="sm">
+                  <Link to={`/studio/${session.id}`}>
+                    Continue Session
+                  </Link>
+                </Button>
               </CardFooter>
             </Card>
           ))}
@@ -197,38 +161,6 @@ const Dashboard = () => {
       )}
     </div>
   );
-};
-
-interface StatusBadgeProps {
-  status: string;
-}
-
-const StatusBadge = ({ status }: StatusBadgeProps) => {
-  switch (status) {
-    case "complete":
-      return (
-        <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-0">
-          <Check className="h-3 w-3 mr-1" />
-          Complete
-        </Badge>
-      );
-    case "processing":
-      return (
-        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-0">
-          <Clock className="h-3 w-3 mr-1 animate-pulse" />
-          Processing
-        </Badge>
-      );
-    case "failed":
-      return (
-        <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200 border-0">
-          <X className="h-3 w-3 mr-1" />
-          Failed
-        </Badge>
-      );
-    default:
-      return null;
-  }
 };
 
 export default Dashboard;
