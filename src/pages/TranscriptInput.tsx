@@ -6,14 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, FileText, ArrowRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 const TranscriptInput = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [transcript, setTranscript] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Check if there's transcript data in location state (from Studio)
   useEffect(() => {
@@ -42,13 +41,13 @@ const TranscriptInput = () => {
       return;
     }
     
-    setIsGenerating(true);
+    setIsProcessing(true);
     
     try {
       // Store the transcript in localStorage for the InputTranscript component
       localStorage.setItem("studioTranscript", transcript);
       
-      // Navigate to the input transcript page for style selection and generation
+      // Navigate to the input transcript page
       navigate("/input-transcript", { state: { transcript } });
     } catch (error) {
       console.error("Error:", error);
@@ -58,7 +57,7 @@ const TranscriptInput = () => {
         description: error instanceof Error ? error.message : "An unexpected error occurred.",
       });
     } finally {
-      setIsGenerating(false);
+      setIsProcessing(false);
     }
   };
   
@@ -93,9 +92,9 @@ const TranscriptInput = () => {
             <Button 
               type="submit" 
               className="w-full"
-              disabled={isGenerating || !transcript.trim()}
+              disabled={isProcessing || !transcript.trim()}
             >
-              {isGenerating ? (
+              {isProcessing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Processing...

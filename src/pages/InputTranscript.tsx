@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Book, PencilLine, Sparkles } from "lucide-react";
 import { KeyPointsDisplay } from "@/components/KeyPointsDisplay";
 import { StyleSelector } from "@/components/StyleSelector";
+import { useToast } from "@/components/ui/use-toast";
 
 const InputTranscript = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const initialTranscript = location.state?.transcript || 
     localStorage.getItem("studioTranscript") || "";
   
@@ -27,6 +29,11 @@ const InputTranscript = () => {
   
   const handleSubmit = () => {
     if (!transcript.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Transcript Required",
+        description: "Please enter a transcript or long-form text to generate threads.",
+      });
       return;
     }
     
@@ -43,79 +50,77 @@ const InputTranscript = () => {
       <div>
         <h1 className="text-3xl font-bold">Create Tweet Thread</h1>
         <p className="text-muted-foreground mt-1">
-          Enter a transcript or long-form text to generate tweet threads
+          Enter your transcript and select a style to generate tweet threads
         </p>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left column: Transcript editor */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Book className="h-5 w-5" />
-                Input Transcript
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder="Paste your transcript or long-form text here..."
-                className="min-h-[300px]"
-              />
-            </CardContent>
-            <CardFooter className="border-t p-4 bg-muted/5 flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                <PencilLine className="h-4 w-4 inline-block mr-1" />
-                You can edit this transcript if needed
-              </div>
-              {initialTranscript && (
-                <Button variant="outline" size="sm" onClick={() => setTranscript(initialTranscript)}>
-                  Reset
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-          
-          {/* Key points display */}
-          <KeyPointsDisplay transcript={transcript} />
-        </div>
-        
-        {/* Right column: Style selection and generate button */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Tweet Style
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StyleSelector 
-                selectedStyle={selectedStyle} 
-                onChange={setSelectedStyle} 
-              />
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-base mb-4">
-                Ready to generate your tweet thread?
-              </p>
-              <Button 
-                className="w-full"
-                size="lg"
-                onClick={handleSubmit}
-                disabled={!transcript.trim()}
-              >
-                Generate Tweet Thread
-                <ArrowRight className="ml-2 h-4 w-4" />
+      {/* Single column layout with transcript editor first, then style selector */}
+      <div className="space-y-6">
+        {/* Transcript editor */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Book className="h-5 w-5" />
+              Input Transcript
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={transcript}
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder="Paste your transcript or long-form text here..."
+              className="min-h-[300px]"
+            />
+          </CardContent>
+          <CardFooter className="border-t p-4 bg-muted/5 flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              <PencilLine className="h-4 w-4 inline-block mr-1" />
+              You can edit this transcript if needed
+            </div>
+            {initialTranscript && (
+              <Button variant="outline" size="sm" onClick={() => setTranscript(initialTranscript)}>
+                Reset
               </Button>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardFooter>
+        </Card>
+        
+        {/* Key points display */}
+        <KeyPointsDisplay transcript={transcript} />
+        
+        {/* Style selector card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Tweet Style
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StyleSelector 
+              selectedStyle={selectedStyle} 
+              onChange={setSelectedStyle} 
+            />
+          </CardContent>
+        </Card>
+        
+        {/* Generate button */}
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-base mb-4">
+              Ready to generate your tweet thread?
+            </p>
+            <Button 
+              className="w-full"
+              size="lg"
+              onClick={handleSubmit}
+              disabled={!transcript.trim()}
+            >
+              Generate Tweet Thread
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
