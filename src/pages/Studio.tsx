@@ -1,7 +1,8 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Headphones, Send } from "lucide-react";
+import { Mic, MicOff, Headphones, Send, ArrowRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
@@ -147,7 +148,8 @@ const Studio = () => {
                 onClick={useTranscript}
                 disabled={!transcript.trim()}
               >
-                Use This Transcript
+                Create Tweet Thread
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>

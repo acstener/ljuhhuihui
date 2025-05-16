@@ -2,3 +2,5 @@
 project_id = "abwzezikbhlpmwbcovvi"
 
 [functions.generate-threads]
+
+[functions.extract-key-points]

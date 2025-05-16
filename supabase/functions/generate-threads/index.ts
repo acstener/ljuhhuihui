@@ -1,10 +1,21 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Style prompts for different influencers
+const stylePrompts = {
+  "my-voice": "Write in a natural, authentic voice that sounds like me. Don't use any specific style, just make it sound natural and conversational.",
+  "shaan-puri": "Write in Shaan Puri's style (from My First Million podcast). Use clear, concise language with actionable business insights. Be direct, use short sentences, and focus on providing value. Occasionally add humor but keep it business-focused.",
+  "greg-isenberg": "Write in Greg Isenberg's style. Focus on community building, design, and product insights. Use memorable hooks, include specific examples, emphasize design thinking. Use short paragraphs and engaging questions.",
+  "naval": "Write in Naval Ravikant's style. Use philosophical, timeless wisdom focused on wealth creation, happiness, and mental models. Write in aphorisms when possible. Be concise but profound. Focus on first principles thinking.",
+  "levels": "Write in the Levels style. Be data-driven and health-optimized with a focus on metabolic health. Combine scientific insights with practical advice. Be educational but approachable, use clear explanations of complex topics."
 };
 
 serve(async (req) => {
@@ -12,40 +23,18 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
+
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-    
-    // Parse the request body
-    const { transcript, numThreads = 3, tonePreference = null } = await req.json();
-    
-    if (!transcript) {
-      throw new Error('No transcript provided');
+    const { transcript, styleId = "my-voice", count = 5 } = await req.json();
+
+    if (!transcript || transcript.trim().length === 0) {
+      throw new Error("Transcript is empty or not provided");
     }
 
-    console.log('Generating threads from transcript...');
-    
-    // Prepare tone instruction
-    let toneInstruction = "";
-    
-    if (tonePreference) {
-      toneInstruction = `
-      Use the following tone of voice: "${tonePreference.name}"
-      
-      Tone description: "${tonePreference.description}"
-      
-      Example tweets in this tone:
-      ${tonePreference.example_tweets.map((tweet: string) => `- "${tweet}"`).join('\n')}
-      
-      Make sure all generated tweets match this tone of voice.
-      `;
-    }
-    
-    // Call OpenAI API to generate tweet threads
+    console.log("Generating tweets with style:", styleId, { transcriptLength: transcript.length });
+
+    const stylePrompt = stylePrompts[styleId as keyof typeof stylePrompts] || stylePrompts["my-voice"];
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -57,81 +46,59 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `SYSTEM:
-You are an expert social‐media content strategist and copywriter. Your goal is to turn a raw transcript into ${numThreads} genuine Twitter/X threads that feel like the speaker is talking directly to their audience. 
-
-1) EMULATE AUTHENTIC VOICE  
- • Analyze the transcript to learn the speaker's natural tone, pacing, favorite phrases, formality level and energy.  
- • Use that same language style, cadence and vocabulary. Don't invent new slang or hashtags the speaker wouldn't use.
-
-2) EXTRACT TOP "HELP NUGGETS"  
- • Identify the ${numThreads} most valuable and concise content nuggets—short actionable tips, mini-stories or lessons—directly from their own words.  
- • A nugget is 1–2 sentences that capture a clear idea.
-
-3) STRUCTURE EACH THREAD  
- For each nugget, create a 3-5 tweet thread:
-   1. Tweet 1: A "hook" or question in the speaker's own voice, under 280 chars.  
-   2. Tweets 2–4: Expand on that nugget with concrete detail or a brief illustrative example—again, mirroring their phrasing.  
-   3. Final Tweet: Close with a natural call-to-action (invite reply, pose a question, point to a resource) as they would.
-
-4) STYLE VARIATION  
- • Ensure each thread feels distinct in approach—some can be how-tos, others quick reflections, others mini-stories—but all must sound like the same speaker.  
-
-5) OUTPUT FORMAT  
-Return exactly this JSON:
-
-{
-  "threads": [
-    {
-      "id": "1",
-      "nugget": "Direct quote or paraphrase of the 1–2 sentence nugget",
-      "tweets": [
-        { "id": "1-1", "text": "…speaker-style hook…" },
-        { "id": "1-2", "text": "…expansion or step…" },
-        { "id": "1-3", "text": "…example or insight…" },
-        { "id": "1-4", "text": "…natural CTA…" }
-      ]
-    }
-  ]
-}
-
-${toneInstruction}
-
-VARIABLES AT RUNTIME  
- • transcript — full time-stamped transcript text  
- • numThreads — number of thread variations to generate  
-
-Make each thread feel as if the speaker simply clipped their transcript, polished their own words, and dropped it into Twitter. No hashtags, no invented voices—just the speaker, unfiltered.`
+            content: `You are an expert at converting interview transcripts into engaging tweet threads.
+            
+            ${stylePrompt}
+            
+            Create ${count} standalone tweets based on the most interesting points in the transcript. Each tweet should:
+            1. Be a complete thought that works as a standalone tweet (under 280 characters)
+            2. Capture a meaningful insight from the conversation
+            3. Be attention-grabbing and shareable
+            4. Follow the specified style guidance
+            
+            Format your response as a JSON array of tweet objects with this structure:
+            [
+              {
+                "tweet": "The tweet text here",
+                "topic": "Brief topic label (3 words max)"
+              }
+            ]`
           },
-          {
-            role: 'user',
-            content: transcript
-          }
+          { role: 'user', content: transcript }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
         response_format: { type: "json_object" }
       }),
     });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('OpenAI API error:', error);
-      throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
-    }
-    
+
     const data = await response.json();
-    const generatedContent = JSON.parse(data.choices[0].message.content);
     
-    return new Response(JSON.stringify(generatedContent), {
+    if (!data.choices || !data.choices[0]?.message?.content) {
+      throw new Error("Failed to generate tweets from OpenAI");
+    }
+
+    const content = data.choices[0].message.content;
+    
+    // Parse the JSON response
+    let tweets;
+    try {
+      const parsedContent = JSON.parse(content);
+      tweets = parsedContent.tweets || [];
+      
+      if (!Array.isArray(tweets)) {
+        throw new Error("Tweets is not an array");
+      }
+    } catch (error) {
+      console.error("Error parsing tweets JSON:", error);
+      throw new Error("Failed to parse tweets from OpenAI response");
+    }
+
+    return new Response(JSON.stringify({ tweets }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-    
   } catch (error) {
     console.error('Error in generate-threads function:', error);
-    
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
