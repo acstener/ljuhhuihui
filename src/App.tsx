@@ -175,6 +175,9 @@ const App = () => {
                     <Route path="/generate/:clipId" element={
                       session ? <ThreadGenerator /> : <Navigate to="/login" />
                     } />
+                    <Route path="/generate/new" element={
+                      session ? <ThreadGenerator /> : <Navigate to="/login" />
+                    } />
                     <Route path="/input-transcript" element={
                       session ? <TranscriptInput /> : <Navigate to="/login" />
                     } />

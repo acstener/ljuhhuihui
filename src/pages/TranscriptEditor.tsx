@@ -49,17 +49,20 @@ const TranscriptEditor = () => {
     
     setIsGenerating(true);
     
+    // Save transcript and style in localStorage for the ThreadGenerator
+    localStorage.setItem("tweetGenerationTranscript", transcript);
+    localStorage.setItem("tweetGenerationStyle", selectedStyle);
+    
     // Simulate generation (replace with actual API call later)
     setTimeout(() => {
-      // Navigate to results or dashboard
       toast({
         title: "Tweet Thread Generated",
         description: "Your thread has been generated successfully!",
       });
       
       setIsGenerating(false);
-      // Navigate to dashboard or results page
-      navigate("/dashboard");
+      // Navigate to the thread generator page instead of dashboard
+      navigate("/generate/new");
     }, 2000);
   };
   
