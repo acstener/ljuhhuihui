@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -119,42 +120,44 @@ const Studio = () => {
           )}
         </div>
         
-        {/* Transcript Display with improved styling */}
+        {/* Subtle Transcript Display with improved styling */}
         <div className="w-full transition-all">
-          <Card className="rounded-xl overflow-hidden border bg-card/50 backdrop-blur-sm shadow-md hover:shadow-lg transition-all">
+          <Card className="rounded-xl overflow-hidden border border-muted/30 bg-card/30 backdrop-blur-sm shadow-sm hover:shadow-md transition-all">
             <CardContent className="p-0">
-              <div className="px-6 py-3 border-b bg-muted/30 flex justify-between items-center">
-                <h2 className="font-medium">Conversation</h2>
+              <div className="px-6 py-3 border-b border-muted/20 bg-muted/10 flex justify-between items-center">
+                <h2 className="font-medium text-muted-foreground">Conversation</h2>
                 <Button 
                   onClick={useTranscript}
                   disabled={!transcript.trim()}
                   variant="ghost"
-                  className="text-xs hover:bg-primary/10"
                   size="sm"
+                  className="text-xs hover:text-primary hover:bg-primary/5 transition-colors"
                 >
                   Create Thread
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </div>
-              <div className="p-5 bg-background/50">
-                <div className="bg-muted/10 rounded-lg p-4 min-h-[250px] max-h-[350px] overflow-y-auto whitespace-pre-wrap font-light border border-muted/30">
-                  {transcript ? (
-                    <div>{transcript}</div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                      <p className="italic">
-                        {isListening 
-                          ? "Listening... speak clearly" 
-                          : "Start a conversation to see the transcript here"}
-                      </p>
-                    </div>
-                  )}
+              <ScrollArea className="max-h-[300px]">
+                <div className="p-4 bg-background/30">
+                  <div className="rounded-lg p-4 min-h-[150px] whitespace-pre-wrap font-light text-muted-foreground">
+                    {transcript ? (
+                      <div className="text-sm leading-relaxed">{transcript}</div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground/60">
+                        <p className="italic text-sm">
+                          {isListening 
+                            ? "Listening... speak clearly" 
+                            : "Start a conversation to see the transcript here"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </CardContent>
           </Card>
           
-          {/* Text Input Field with improved styling */}
+          {/* Text Input Field with subtle styling */}
           {isConnected && (
             <div className="mt-4 w-full">
               <div className="flex gap-2 items-end">
@@ -162,13 +165,13 @@ const Studio = () => {
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 resize-none bg-background/80 backdrop-blur-sm focus-visible:ring-1 focus-visible:ring-primary"
+                  className="flex-1 resize-none bg-background/50 backdrop-blur-sm border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30"
                 />
                 <Button 
                   onClick={sendTextMessage} 
-                  variant="outline"
+                  variant="ghost"
                   disabled={!userInput.trim()}
-                  className="h-10 w-10 p-0 rounded-full bg-primary/10 hover:bg-primary/20 border-primary/20"
+                  className="h-10 w-10 p-0 rounded-full bg-primary/5 hover:bg-primary/10 transition-colors"
                 >
                   <Send className="h-4 w-4 text-primary" />
                 </Button>
