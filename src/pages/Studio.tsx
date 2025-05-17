@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,16 +57,17 @@ const Studio = () => {
   };
 
   return (
-    <div className="space-y-8 py-4">
-      <div className="text-center max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
+      <div className="text-center max-w-2xl mx-auto mb-16">
         <h1 className="text-4xl font-bold mb-3">Studio</h1>
         <p className="text-muted-foreground">
           Have a conversation with AI and transform it into engaging tweet threads
         </p>
       </div>
       
-      <div className="grid gap-8 md:gap-12 md:grid-cols-2 items-start">
-        <div className="flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
+        {/* Centered Mic Button */}
+        <div className="mb-16">
           <div className={`relative transition-all duration-300 ${isListening ? 'scale-110' : 'scale-100'}`}>
             {!isListening ? (
               <Button 
@@ -96,8 +98,45 @@ const Studio = () => {
             </div>
           </div>
           
+          {connectionAttempts > 0 && connectionAttempts < 5 && (
+            <p className="text-sm text-yellow-600 mt-2">
+              Connection attempts: {connectionAttempts}/5
+            </p>
+          )}
+        </div>
+        
+        {/* Transcript Display */}
+        <div className="w-full">
+          <Card className="rounded-xl overflow-hidden border bg-card/50 backdrop-blur-sm shadow-md transition-all hover:shadow-lg">
+            <CardContent className="p-0">
+              <div className="px-6 py-4 border-b bg-muted/30 flex justify-between items-center">
+                <h2 className="text-lg font-medium">Conversation</h2>
+                <Button 
+                  onClick={useTranscript}
+                  disabled={!transcript.trim()}
+                  variant="ghost"
+                  className="text-xs"
+                  size="sm"
+                >
+                  Create Tweet Thread
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </div>
+              <div className="p-6 bg-background/50">
+                <div className="bg-muted/20 rounded-lg p-5 min-h-[250px] max-h-[400px] overflow-y-auto whitespace-pre-wrap font-light">
+                  {transcript || (
+                    <span className="text-muted-foreground italic">
+                      Your conversation will appear here...
+                    </span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Text Input Field */}
           {isConnected && (
-            <div className="mt-16 w-full max-w-md">
+            <div className="mt-6 w-full">
               <div className="flex gap-2 items-end">
                 <Textarea
                   value={userInput}
@@ -116,41 +155,6 @@ const Studio = () => {
               </div>
             </div>
           )}
-          
-          {connectionAttempts > 0 && connectionAttempts < 5 && (
-            <p className="text-sm text-yellow-600 mt-2">
-              Connection attempts: {connectionAttempts}/5
-            </p>
-          )}
-        </div>
-        
-        <div>
-          <Card className="rounded-xl overflow-hidden border bg-card/50 backdrop-blur-sm shadow-md transition-all hover:shadow-lg">
-            <CardContent className="p-0">
-              <div className="px-6 py-4 border-b bg-muted/30 flex justify-between items-center">
-                <h2 className="text-lg font-medium">Conversation</h2>
-                <Button 
-                  onClick={useTranscript}
-                  disabled={!transcript.trim()}
-                  variant="ghost"
-                  className="text-xs"
-                  size="sm"
-                >
-                  Create Tweet Thread
-                  <ArrowRight className="ml-1 h-3 w-3" />
-                </Button>
-              </div>
-              <div className="p-6 bg-background/50">
-                <div className="bg-muted/20 rounded-lg p-5 min-h-[350px] max-h-[500px] overflow-y-auto whitespace-pre-wrap font-light">
-                  {transcript || (
-                    <span className="text-muted-foreground italic">
-                      Your conversation will appear here...
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
