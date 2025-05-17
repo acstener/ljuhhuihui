@@ -95,12 +95,47 @@ export default {
 				'pulse-light': {
 					'0%, 100%': { opacity: '1' },
 					'50%': { opacity: '0.5' }
+				},
+				'voice-wave-expand': {
+					'0%': { 
+						transform: 'scale(0.95)', 
+						opacity: '0.8' 
+					},
+					'100%': { 
+						transform: 'scale(2.5)', 
+						opacity: '0' 
+					},
+				},
+				'voice-wave-pulse': {
+					'0%, 100%': { 
+						transform: 'scale(1)', 
+						opacity: '0.8' 
+					},
+					'50%': { 
+						transform: 'scale(1.1)', 
+						opacity: '0.4'
+					},
+				},
+				'voice-wave-glow': {
+					'0%': { 
+						boxShadow: '0 0 0 0 rgba(79, 70, 229, 0.7)' 
+					},
+					'70%': { 
+						boxShadow: '0 0 0 15px rgba(79, 70, 229, 0)'
+					},
+					'100%': { 
+						boxShadow: '0 0 0 0 rgba(79, 70, 229, 0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'pulse-light': 'pulse-light 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+				'pulse-light': 'pulse-light 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'voice-wave-expand': 'voice-wave-expand 3s ease-out infinite',
+				'voice-wave-pulse': 'voice-wave-pulse 2s ease-in-out infinite',
+				'voice-wave-glow': 'voice-wave-glow 2s ease-in-out infinite',
+				'voice-wave-listening': 'voice-wave-expand 1.5s ease-out infinite'
 			}
 		}
 	},

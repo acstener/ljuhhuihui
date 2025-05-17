@@ -1,13 +1,13 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Send, ArrowRight } from "lucide-react";
+import { Send, ArrowRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { VoiceOrb } from "@/components/VoiceOrb";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -67,57 +67,15 @@ const Studio = () => {
       </div>
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
-        {/* Centered Mic Button with improved styling */}
+        {/* Voice Orb Component */}
         <div className="mb-12 relative">
-          {!isListening ? (
-            <Button 
-              onClick={startConversation}
-              className={`h-24 w-24 rounded-full shadow-lg transition-all duration-300 
-                ${isInitializing 
-                  ? 'bg-primary/80 hover:bg-primary/70' 
-                  : 'bg-gradient-to-br from-primary to-primary/80 hover:bg-primary/90'}
-              `}
-              disabled={isInitializing || connectionAttempts >= 5}
-            >
-              <div className={`${isInitializing ? 'animate-pulse' : ''}`}>
-                <Mic className="h-10 w-10" />
-              </div>
-            </Button>
-          ) : (
-            <Button 
-              onClick={stopConversation}
-              variant="destructive"
-              className="h-24 w-24 rounded-full shadow-lg transition-all animate-pulse"
-              disabled={isInitializing}
-            >
-              <MicOff className="h-10 w-10" />
-            </Button>
-          )}
-          
-          <div 
-            className={`absolute -bottom-8 mt-4 text-sm font-medium transition-all duration-300
-              ${isListening 
-                ? 'text-destructive' 
-                : isInitializing 
-                  ? 'text-muted-foreground animate-pulse' 
-                  : 'text-primary'}`
-            }
-          >
-            {isInitializing 
-              ? "Connecting..." 
-              : isListening 
-                ? "Recording..." 
-                : "Tap to Start"
-            }
-          </div>
-          
-          {connectionAttempts > 0 && connectionAttempts < 5 && (
-            <div className="absolute -bottom-16 w-full text-center">
-              <p className="text-sm text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 rounded-full inline-block">
-                Reconnecting: {connectionAttempts}/5
-              </p>
-            </div>
-          )}
+          <VoiceOrb 
+            isListening={isListening}
+            isInitializing={isInitializing}
+            connectionAttempts={connectionAttempts}
+            onStartConversation={startConversation}
+            onStopConversation={stopConversation}
+          />
         </div>
         
         {/* Subtle Transcript Display with improved styling */}
