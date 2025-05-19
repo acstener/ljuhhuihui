@@ -40,6 +40,30 @@ const Studio = () => {
     transcriptRef.current = transcript;
   }, [transcript]);
   
+  // Track if we've requested microphone permissions
+  const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
+  
+  // Request microphone permissions on component mount
+  useEffect(() => {
+    if (!hasRequestedPermissions) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(() => {
+            console.log("Microphone permission granted in Studio");
+            setHasRequestedPermissions(true);
+          })
+          .catch(error => {
+            console.error("Microphone permission denied in Studio:", error);
+            toast({
+              variant: "destructive",
+              title: "Microphone Access Required",
+              description: "Please allow microphone access to use the voice features."
+            });
+          });
+      }
+    }
+  }, [hasRequestedPermissions, toast]);
+  
   const useTranscript = () => {
     if (!transcriptRef.current.trim()) {
       toast({
@@ -60,16 +84,29 @@ const Studio = () => {
   };
 
   const handleStartConversation = () => {
-    if (!isListening) {
+    console.log("Studio handleStartConversation called, current isListening:", isListening);
+    if (!isListening && !isInitializing) {
+      console.log("Starting conversation from Studio");
       startConversation();
+    } else {
+      console.log("Not starting conversation because isListening:", isListening, "or isInitializing:", isInitializing);
     }
   };
 
   const handleStopConversation = (duration: number) => {
+    console.log("Studio handleStopConversation called, current isListening:", isListening);
     if (isListening) {
+      console.log("Stopping conversation from Studio after", duration, "seconds");
       stopConversation();
+    } else {
+      console.log("Not stopping conversation because isListening is false");
     }
   };
+
+  // This helps ensure the UI state is synchronized with the hook
+  useEffect(() => {
+    console.log("Studio state update - isListening:", isListening, "isInitializing:", isInitializing, "isConnected:", isConnected);
+  }, [isListening, isInitializing, isConnected]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">

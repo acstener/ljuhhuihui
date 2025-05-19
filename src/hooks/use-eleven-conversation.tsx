@@ -57,7 +57,9 @@ export const useElevenConversation = ({
   const transcriptRef = useRef<string>(initialTranscript);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationIdRef = useRef<string | null>(null);
-  const isStoppingRef = useRef<boolean>(false); // Add this to track if stopConversation is in progress
+  const isStoppingRef = useRef<boolean>(false); // Track if stopConversation is in progress
+  const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOperationTimeRef = useRef<number>(Date.now());
 
   // Update transcript ref whenever transcript changes
   useEffect(() => {
@@ -80,6 +82,7 @@ export const useElevenConversation = ({
     setConnectionAttempts(0);
     setIsInitializing(false);
     isStoppingRef.current = false; // Reset the stopping flag when connected
+    lastOperationTimeRef.current = Date.now();
     
     toast({
       title: "Connected",
@@ -199,19 +202,47 @@ export const useElevenConversation = ({
     }
   }, [connectionAttempts]);
 
-  const startConversation = async () => {
-    if (!isMountedRef.current) {
-      debugLog("startConversation called after component unmount - aborting");
-      return;
+  // Rate limit operations
+  const isRateLimited = useCallback(() => {
+    const now = Date.now();
+    const elapsed = now - lastOperationTimeRef.current;
+    const isLimited = elapsed < 1000; // 1 second cooldown
+    
+    if (isLimited) {
+      debugLog(`Operation rate limited. Last operation was ${elapsed}ms ago.`);
+    } else {
+      lastOperationTimeRef.current = now;
     }
     
-    // Don't start if we're in the process of stopping
+    return isLimited;
+  }, []);
+
+  const startConversation = async () => {
+    // Check if we're in the process of stopping
     if (isStoppingRef.current) {
       debugLog("startConversation called while stopping - aborting");
       return;
     }
     
+    // Check if we're already initializing
+    if (isInitializing) {
+      debugLog("startConversation called while already initializing - aborting");
+      return;
+    }
+    
+    // Rate limit check
+    if (isRateLimited()) {
+      debugLog("startConversation rate limited - ignoring");
+      return;
+    }
+    
+    if (!isMountedRef.current) {
+      debugLog("startConversation called after component unmount - aborting");
+      return;
+    }
+    
     try {
+      debugLog("Starting conversation initialization");
       setIsInitializing(true);
       
       // Don't clear the transcript if there's previous content
@@ -222,14 +253,24 @@ export const useElevenConversation = ({
       
       debugLog("Starting conversation with agent ID:", AGENT_ID);
       
+      // Clear any pending start timeout
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current);
+        startTimeoutRef.current = null;
+      }
+      
       // First ensure any previous session is ended
       if (isConnected) {
         debugLog("Ending previous session before starting new one");
-        await conversation.endSession();
+        try {
+          await conversation.endSession();
+        } catch (error) {
+          debugLog("Error ending previous session:", error);
+        }
       }
       
       // Small delay to ensure cleanup is complete
-      setTimeout(async () => {
+      startTimeoutRef.current = setTimeout(async () => {
         if (!isMountedRef.current || isStoppingRef.current) {
           debugLog("setTimeout callback called after component unmount or during stop - aborting");
           return;
@@ -243,6 +284,7 @@ export const useElevenConversation = ({
           
           conversationIdRef.current = sessionId;
           setIsListening(true);
+          debugLog("Session started successfully with ID:", sessionId);
         } catch (error) {
           debugLog("Failed to start conversation after delay:", error);
           toast({
@@ -268,21 +310,30 @@ export const useElevenConversation = ({
   };
 
   const stopConversation = async () => {
-    // If already stopping, don't trigger again
+    // Check if we're already stopping
     if (isStoppingRef.current) {
       debugLog("stopConversation already in progress - ignoring redundant call");
+      return;
+    }
+    
+    // Rate limit check
+    if (isRateLimited()) {
+      debugLog("stopConversation rate limited - ignoring");
       return;
     }
     
     try {
       // Set the flag to indicate we're in the process of stopping
       isStoppingRef.current = true;
+      debugLog("Stopping conversation - flag set");
       
-      debugLog("Stopping conversation");
+      // Immediately update UI state
+      setIsListening(false);
       
-      // Only try to end session if we're connected
-      if (isConnected) {
-        await conversation.endSession();
+      // Clear any pending timeouts
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current);
+        startTimeoutRef.current = null;
       }
       
       if (reconnectTimeoutRef.current) {
@@ -290,9 +341,21 @@ export const useElevenConversation = ({
         reconnectTimeoutRef.current = null;
       }
       
-      setIsListening(false);
+      // Only try to end session if we're connected
+      if (isConnected) {
+        debugLog("Ending active session");
+        try {
+          await conversation.endSession();
+          debugLog("Session ended successfully");
+        } catch (error) {
+          debugLog("Error ending session:", error);
+        }
+      }
+      
       setConnectionAttempts(0);
       setIsInitializing(false);
+      
+      debugLog("Conversation fully stopped");
       
       // Only show toast once
       toast({
@@ -303,9 +366,11 @@ export const useElevenConversation = ({
       debugLog("Failed to stop conversation:", error);
     } finally {
       // Reset stopping flag after operation completes, regardless of result
+      // with a slight delay to prevent immediate restart
       setTimeout(() => {
         isStoppingRef.current = false;
-      }, 500); // Add small delay to prevent immediate restart
+        debugLog("Stop flag reset");
+      }, 1000);
     }
   };
 
@@ -374,17 +439,21 @@ export const useElevenConversation = ({
       // Prevent reconnects during unmount
       isStoppingRef.current = true;
       
+      // Clear any pending timeouts
+      if (startTimeoutRef.current) {
+        clearTimeout(startTimeoutRef.current);
+      }
+      
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      
       // Cleanup on unmount
       if (isConnected) {
         debugLog("Ending session during unmount");
         conversation.endSession().catch(error => {
           debugLog("Error ending session during unmount:", error);
         });
-      }
-      
-      if (reconnectTimeoutRef.current) {
-        debugLog("Clearing reconnect timeout during unmount");
-        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, []);

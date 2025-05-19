@@ -2,7 +2,7 @@
 "use client";
 
 import { Mic } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 interface AIVoiceInputProps {
@@ -31,6 +31,7 @@ export function AIVoiceInput({
   const [isClient, setIsClient] = useState(false);
   const [isDemo, setIsDemo] = useState(demoMode);
   const [lastListeningState, setLastListeningState] = useState(isListening);
+  const [processingClick, setProcessingClick] = useState(false);
 
   // Update the submitted state when isListening changes from outside
   useEffect(() => {
@@ -42,6 +43,17 @@ export function AIVoiceInput({
 
   useEffect(() => {
     setIsClient(true);
+    
+    // Check for microphone permission on mount
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => {
+          console.log("Microphone permission granted");
+        })
+        .catch(err => {
+          console.error("Microphone permission denied:", err);
+        });
+    }
   }, []);
 
   useEffect(() => {
@@ -92,16 +104,27 @@ export function AIVoiceInput({
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (isDemo) {
       setIsDemo(false);
       setSubmitted(false);
-    } else if (!isInitializing) {
-      const newState = !submitted;
-      setSubmitted(newState);
-      setLastListeningState(newState);
+      return;
+    } 
+    
+    if (isInitializing || processingClick) {
+      return;
     }
-  };
+    
+    // Debounce clicks
+    setProcessingClick(true);
+    setTimeout(() => setProcessingClick(false), 1000);
+    
+    const newState = !submitted;
+    setSubmitted(newState);
+    setLastListeningState(newState);
+    
+    console.log("AIVoiceInput handleClick - new state:", newState);
+  }, [isDemo, isInitializing, processingClick, submitted]);
 
   return (
     <div className={cn("w-full py-4", className)}>
@@ -115,7 +138,7 @@ export function AIVoiceInput({
           )}
           type="button"
           onClick={handleClick}
-          disabled={isInitializing}
+          disabled={isInitializing || processingClick}
         >
           {isInitializing ? (
             <div
