@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -15,19 +16,21 @@ import { createClient } from "@supabase/supabase-js";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import AuthLayout from "@/layouts/AuthLayout";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Studio from "@/pages/Studio";
 import TranscriptEditor from "@/pages/TranscriptEditor";
 import ThreadGenerator from "@/pages/ThreadGenerator";
 import TrainTone from "./pages/TrainTone";
-
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || "";
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from "./integrations/supabase/client";
 
 interface AuthContextType {
   user: any;
   session: any;
+  login: (email: string, password: string) => Promise<any>;
+  register: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
 }
 
@@ -47,11 +50,35 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(session?.user ?? null);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
     });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) throw error;
+    return data;
+  };
+
+  const register = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+    
+    if (error) throw error;
+    return data;
+  };
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -62,6 +89,8 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     user,
     session,
+    login,
+    register,
     logout,
   };
 
@@ -77,35 +106,20 @@ const useAuth = () => {
 };
 
 const App = () => {
-  const { user, session } = useAuth();
-
   return (
     <Router>
       <AuthProvider>
         <Routes>
+          <Route path="/auth" element={<AuthLayout />}>
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+          </Route>
+          
           <Route
             path="/login"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <div className="flex justify-center items-center h-screen bg-gray-100">
-                  <div className="p-8 bg-white shadow-md rounded-lg w-96">
-                    <h1 className="text-2xl font-semibold text-center mb-4">
-                      Login
-                    </h1>
-                    <Auth
-                      supabaseClient={supabase}
-                      appearance={{ theme: ThemeSupa }}
-                      providers={["google", "github"]}
-                      redirectTo={`${window.location.origin}/dashboard`}
-                    />
-                  </div>
-                </div>
-              )
-            }
+            element={<Navigate to="/auth/login" replace />}
           />
-
+          
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Navigate to="/dashboard" />} />
             <Route path="dashboard" element={<Dashboard />} />

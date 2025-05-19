@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +35,7 @@ const Login = () => {
         title: "Success",
         description: "You've been logged in",
       });
+      navigate("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -82,7 +84,7 @@ const Login = () => {
       
       <div className="text-center text-sm">
         Don't have an account?{" "}
-        <Link to="/register" className="text-primary hover:underline">
+        <Link to="/auth/register" className="text-primary hover:underline">
           Sign up
         </Link>
       </div>
