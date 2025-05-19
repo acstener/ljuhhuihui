@@ -6,7 +6,7 @@ import { Send, ArrowRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AIVoiceInput } from "@/components/ui/ai-voice-input";
 
@@ -39,6 +39,16 @@ const Studio = () => {
     transcriptRef.current = transcript;
   }, [transcript]);
   
+  // Track if user has already been shown a "conversation ended" notification
+  const conversationEndedShown = useRef(false);
+  
+  // Clear the flag when starting a new conversation
+  useEffect(() => {
+    if (isListening) {
+      conversationEndedShown.current = false;
+    }
+  }, [isListening]);
+
   const useTranscript = () => {
     if (!transcriptRef.current.trim()) {
       toast({
@@ -63,6 +73,15 @@ const Studio = () => {
     stopConversation();
     if (duration > 0) {
       console.log(`Recording stopped after ${duration} seconds`);
+      
+      // Only show the toast once per conversation session
+      if (duration > 2 && !conversationEndedShown.current) {
+        toast({
+          title: "Recording stopped",
+          description: `Your recording lasted ${Math.floor(duration)} seconds.`,
+        });
+        conversationEndedShown.current = true;
+      }
     }
   };
 
