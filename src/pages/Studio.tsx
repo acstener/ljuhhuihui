@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,10 +50,10 @@ const Studio = () => {
     }
 
     // Save transcript to localStorage to be processed
-    localStorage.setItem("studioTranscript", transcriptRef.current);
+    localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
     
     // Navigate to the new transcript editor page
-    navigate("/transcript-editor", { 
+    navigate("/generate/new", { 
       state: { transcript: transcriptRef.current }
     });
   };
@@ -62,7 +63,7 @@ const Studio = () => {
       <div className="text-center max-w-2xl mx-auto mb-10">
         <h1 className="text-4xl font-bold mb-2">Studio</h1>
         <p className="text-muted-foreground">
-          Record your thoughts and transform them into engaging tweet threads
+          Record your thoughts and transform them into authentic content
         </p>
       </div>
       
@@ -91,7 +92,7 @@ const Studio = () => {
                   size="sm"
                   className="text-xs hover:text-primary hover:bg-primary/5 transition-colors"
                 >
-                  Create Thread
+                  Create Content
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </div>

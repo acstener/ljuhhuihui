@@ -1,8 +1,6 @@
 
-import { useState } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 
 export interface ToneStyle {
   id: string;
@@ -10,33 +8,11 @@ export interface ToneStyle {
   description: string;
 }
 
-const defaultStyles: ToneStyle[] = [
-  {
-    id: "my-voice",
-    name: "Use my tone of voice",
-    description: "Generate tweets that sound like they're written by you, matching your natural style and voice."
-  },
-  {
-    id: "shaan-puri",
-    name: "Shaan Puri (My First Million)",
-    description: "Clear, concise, and value-packed tweets with a focus on actionable business insights."
-  },
-  {
-    id: "greg-isenberg",
-    name: "Greg Isenberg",
-    description: "Community-focused tweets with memorable hooks and an emphasis on design thinking."
-  },
-  {
-    id: "naval",
-    name: "Naval Ravikant",
-    description: "Philosophical, timeless wisdom focused on wealth creation, happiness, and mental models."
-  },
-  {
-    id: "levels",
-    name: "Levels",
-    description: "Data-driven, health-optimized tweets that combine science with practical advice."
-  }
-];
+const defaultStyle: ToneStyle = {
+  id: "my-voice",
+  name: "Your Authentic Voice",
+  description: "Generate content that sounds exactly like you - raw, unfiltered, and authentic to your natural speaking style."
+};
 
 interface StyleSelectorProps {
   selectedStyle: string;
@@ -49,19 +25,20 @@ export function StyleSelector({
   onChange,
   customStyles = []
 }: StyleSelectorProps) {
-  const allStyles = [...defaultStyles, ...customStyles];
+  // We're enforcing only one style option now
+  const allStyles = [defaultStyle, ...customStyles];
   
   return (
     <div className="space-y-4">
       <div className="mb-4">
-        <h3 className="text-lg font-medium">Select Tweet Style</h3>
-        <p className="text-sm text-muted-foreground">Choose how you want your tweets to sound</p>
+        <h3 className="text-lg font-medium">Content Style</h3>
+        <p className="text-sm text-muted-foreground">Your content will be generated in your authentic voice</p>
       </div>
       
       <RadioGroup 
         value={selectedStyle} 
         onValueChange={onChange}
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-1 gap-4"
       >
         {allStyles.map((style) => (
           <div key={style.id} className="flex items-start space-x-2">

@@ -9,15 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Style prompts for different influencers
-const stylePrompts = {
-  "my-voice": "Write in a natural, authentic voice that sounds like me. Don't use any specific style, just make it sound natural and conversational.",
-  "shaan-puri": "Write in Shaan Puri's style (from My First Million podcast). Use clear, concise language with actionable business insights. Be direct, use short sentences, and focus on providing value. Occasionally add humor but keep it business-focused.",
-  "greg-isenberg": "Write in Greg Isenberg's style. Focus on community building, design, and product insights. Use memorable hooks, include specific examples, emphasize design thinking. Use short paragraphs and engaging questions.",
-  "naval": "Write in Naval Ravikant's style. Use philosophical, timeless wisdom focused on wealth creation, happiness, and mental models. Write in aphorisms when possible. Be concise but profound. Focus on first principles thinking.",
-  "levels": "Write in the Levels style. Be data-driven and health-optimized with a focus on metabolic health. Combine scientific insights with practical advice. Be educational but approachable, use clear explanations of complex topics."
-};
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -40,7 +31,7 @@ serve(async (req) => {
       );
     }
 
-    const { transcript, styleId = "my-voice", count = 5 } = await req.json();
+    const { transcript, count = 5 } = await req.json();
 
     if (!transcript || transcript.trim().length === 0) {
       console.error("Empty transcript provided");
@@ -56,9 +47,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Generating tweets with style:", styleId, { transcriptLength: transcript.length });
-
-    const stylePrompt = stylePrompts[styleId as keyof typeof stylePrompts] || stylePrompts["my-voice"];
+    console.log("Generating authentic content from transcript:", { transcriptLength: transcript.length });
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -71,21 +60,29 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert at converting interview transcripts into engaging tweet threads.
+            content: `You transform conversation transcripts into authentic, raw social media posts.
+
+            IMPORTANT: STICK TO THE TONE OF VOICE AND LANGUAGE USED AS MUCH AS POSSIBLE.
             
-            ${stylePrompt}
+            - Keep the content authentic and raw - exactly as someone would naturally express their thoughts
+            - DO NOT use hashtags
+            - DO NOT use typical "influencer" language or formatting
+            - DO NOT try to make it sound like a typical "tweet"
+            - Preserve the original voice, word choices, and speaking style
+            - Maintain the natural flow and authenticity of the original conversation
+            - Focus on the genuine insights and thoughts, not on making them "shareable"
+            - The goal is raw authenticity - as if the person is speaking directly to their audience
             
-            Create ${count} standalone tweets based on the most interesting points in the transcript. Each tweet should:
-            1. Be a complete thought that works as a standalone tweet (under 280 characters)
+            Create ${count} standalone posts based on the most interesting points in the transcript. Each post should:
+            1. Be a complete thought that works on social media (under 280 characters)
             2. Capture a meaningful insight from the conversation
-            3. Be attention-grabbing and shareable
-            4. Follow the specified style guidance
+            3. Maintain the authentic voice and tone of the speaker
             
             Format your response as a JSON object with a "tweets" field containing an array of tweet objects with this structure:
             {
               "tweets": [
                 {
-                  "tweet": "The tweet text here",
+                  "tweet": "The raw, authentic post text here",
                   "topic": "Brief topic label (3 words max)"
                 }
               ]
@@ -103,7 +100,7 @@ serve(async (req) => {
       console.error("Failed to get proper response from OpenAI:", data);
       return new Response(
         JSON.stringify({ 
-          error: "Failed to generate tweets from OpenAI", 
+          error: "Failed to generate content from OpenAI", 
           details: data,
           tweets: [] 
         }), 
@@ -140,11 +137,11 @@ serve(async (req) => {
       if (tweets.length === 0) {
         tweets = [
           {
-            tweet: "This is a sample tweet generated as a fallback. The API didn't return any tweets.",
-            topic: "Sample Tweet"
+            tweet: "This is a sample post generated as a fallback. The API didn't return any content.",
+            topic: "Sample Post"
           },
           {
-            tweet: "Another example tweet to show you the formatting. You can regenerate to get real tweets.",
+            tweet: "Another example post to show you the formatting. You can regenerate to get authentic content.",
             topic: "Example"
           }
         ];
@@ -153,7 +150,7 @@ serve(async (req) => {
       console.error("Error parsing tweets JSON:", error, "Raw content:", content);
       return new Response(
         JSON.stringify({ 
-          error: "Failed to parse tweets from OpenAI response",
+          error: "Failed to parse content from OpenAI response",
           rawContent: content,
           tweets: [] 
         }), 
