@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
 import { OptionsPanel } from "@/components/thread/OptionsPanel";
@@ -11,6 +11,7 @@ const ThreadGenerator = () => {
     transcript,
     tweets,
     isGenerating,
+    error,
     generateTweets,
     handleUpdateTweet,
     handleDeleteTweet,
@@ -19,6 +20,13 @@ const ThreadGenerator = () => {
   } = useThreadGenerator();
   
   const navigate = useNavigate();
+  
+  // Auto-generate tweets when component loads if transcript exists
+  useEffect(() => {
+    if (transcript && tweets.length === 0 && !isGenerating) {
+      generateTweets();
+    }
+  }, [transcript]);
   
   const handleBackToTranscript = () => {
     navigate("/transcript-editor", { state: { transcript } });
@@ -48,7 +56,9 @@ const ThreadGenerator = () => {
           {isGenerating || tweets.length === 0 ? (
             <ContentPlaceholder 
               isLoading={isGenerating} 
-              hasTranscript={!!transcript.trim()} 
+              hasTranscript={!!transcript.trim()}
+              error={error}
+              onRetry={() => generateTweets()}
             />
           ) : (
             <div className="space-y-4">

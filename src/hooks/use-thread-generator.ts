@@ -14,6 +14,7 @@ export const useThreadGenerator = () => {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [exampleTweets, setExampleTweets] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export const useThreadGenerator = () => {
       }
     } catch (err: any) {
       console.error("Failed to fetch tone examples:", err);
+      setError("Failed to load tone examples. Please try again later.");
     }
   };
 
@@ -58,6 +60,7 @@ export const useThreadGenerator = () => {
       return;
     }
     
+    setError(null);
     setIsGenerating(true);
     
     try {
@@ -75,16 +78,21 @@ export const useThreadGenerator = () => {
       
       if (data && Array.isArray(data.tweets)) {
         setTweets(data.tweets);
+      } else if (data && data.error) {
+        // Handle error response from the function
+        throw new Error(`API Error: ${data.error}`);
       } else {
         throw new Error("Invalid response format from content generation. Expected tweets array.");
       }
     } catch (err: any) {
       console.error("Failed to generate content:", err);
+      setError(err.message || "Could not generate content. Please try again later.");
       toast({
         title: "Generation failed",
         description: err.message || "Could not generate content",
         variant: "destructive"
       });
+      setTweets([]); // Clear any previous tweets
     } finally {
       setIsGenerating(false);
     }
@@ -132,6 +140,7 @@ export const useThreadGenerator = () => {
     tweets,
     isGenerating,
     exampleTweets,
+    error,
     generateTweets,
     handleUpdateTweet,
     handleDeleteTweet,

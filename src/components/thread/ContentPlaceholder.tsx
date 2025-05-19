@@ -1,17 +1,22 @@
 
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 interface ContentPlaceholderProps {
   isLoading: boolean;
   hasTranscript: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export const ContentPlaceholder = ({ 
   isLoading, 
-  hasTranscript 
+  hasTranscript,
+  error,
+  onRetry
 }: ContentPlaceholderProps) => {
   if (isLoading) {
     return (
@@ -35,6 +40,26 @@ export const ContentPlaceholder = ({
           </Card>
         ))}
       </div>
+    );
+  }
+
+  // Display error state
+  if (error) {
+    return (
+      <Card className="bg-destructive/5 border-destructive/20">
+        <CardContent className="py-12 text-center">
+          <AlertCircle className="h-8 w-8 mx-auto mb-4 text-destructive" />
+          <p className="text-destructive font-medium mb-2">Content Generation Error</p>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+            {error}
+          </p>
+          {onRetry && (
+            <Button onClick={onRetry} variant="outline">
+              Try Again
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     );
   }
 

@@ -89,6 +89,8 @@ serve(async (req) => {
       ]
     }`;
 
+    console.log("Making OpenAI API request...");
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -108,6 +110,26 @@ serve(async (req) => {
       }),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error("OpenAI API error:", { 
+        status: response.status, 
+        statusText: response.statusText,
+        errorData 
+      });
+      return new Response(
+        JSON.stringify({ 
+          error: `OpenAI API error: ${response.status} ${response.statusText}`,
+          details: errorData,
+          tweets: [] 
+        }), 
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const data = await response.json();
     
     if (!data.choices || !data.choices[0]?.message?.content) {
@@ -126,7 +148,7 @@ serve(async (req) => {
     }
 
     const content = data.choices[0].message.content;
-    console.log("Raw OpenAI response content:", content);
+    console.log("Raw OpenAI response received");
     
     // Parse the JSON response
     let tweets = [];
@@ -160,6 +182,8 @@ serve(async (req) => {
           }
         ];
       }
+      
+      console.log("Successfully generated tweets:", { count: tweets.length });
     } catch (error) {
       console.error("Error parsing tweets JSON:", error, "Raw content:", content);
       return new Response(
