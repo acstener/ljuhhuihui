@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceOrb } from "@/components/VoiceOrb";
+import { TextShimmer } from "@/components/ui/text-shimmer";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -60,7 +62,13 @@ const Studio = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-4xl font-bold mb-2">Studio</h1>
+        <TextShimmer 
+          as="h1"
+          className="text-4xl font-bold mb-2 [--base-color:theme(colors.brand.blue)] [--base-gradient-color:theme(colors.brand.teal)] dark:[--base-color:theme(colors.brand.blue)] dark:[--base-gradient-color:theme(colors.primary)]"
+          duration={3}
+        >
+          Studio
+        </TextShimmer>
         <p className="text-muted-foreground">
           Record your thoughts and transform them into engaging tweet threads
         </p>
