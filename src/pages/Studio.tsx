@@ -59,6 +59,18 @@ const Studio = () => {
     });
   };
 
+  const handleStartConversation = () => {
+    if (!isListening) {
+      startConversation();
+    }
+  };
+
+  const handleStopConversation = (duration: number) => {
+    if (isListening) {
+      stopConversation();
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
@@ -78,23 +90,15 @@ const Studio = () => {
         {/* AIVoiceInput Component with properly connected callbacks */}
         <div className="mb-8">
           <AIVoiceInput 
-            onStart={() => {
-              if (!isListening) {
-                startConversation();
-              }
-            }}
-            onStop={() => {
-              if (isListening) {
-                stopConversation();
-              }
-            }}
+            onStart={handleStartConversation}
+            onStop={handleStopConversation}
             isListening={isListening}
             isInitializing={isInitializing}
             visualizerBars={36}
           />
         </div>
         
-        {/* Subtle Transcript Display with improved styling */}
+        {/* Transcript Display */}
         <div className="w-full transition-all">
           <Card className="rounded-xl overflow-hidden border border-muted/30 bg-card/30 backdrop-blur-sm shadow-sm hover:shadow-md transition-all">
             <CardContent className="p-0">
@@ -131,7 +135,7 @@ const Studio = () => {
             </CardContent>
           </Card>
           
-          {/* Text Input Field with subtle styling */}
+          {/* Text Input Field */}
           {isConnected && (
             <div className="mt-4 w-full">
               <div className="flex gap-2 items-end">
