@@ -8,7 +8,6 @@ import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceOrb } from "@/components/VoiceOrb";
-import { TextShimmer } from "@/components/ui/text-shimmer";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -61,13 +60,7 @@ const Studio = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <TextShimmer 
-          as="h1"
-          className="text-4xl font-bold mb-2 [--base-color:#2563EB] [--base-gradient-color:#7C3AED] dark:[--base-color:#3B82F6] dark:[--base-gradient-color:#8B5CF6]"
-          duration={2.5}
-        >
-          Studio
-        </TextShimmer>
+        <h1 className="text-4xl font-bold mb-2">Studio</h1>
         <p className="text-muted-foreground">
           Record your thoughts and transform them into engaging tweet threads
         </p>
