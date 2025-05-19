@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,8 +63,8 @@ const Studio = () => {
       <div className="text-center max-w-2xl mx-auto mb-10">
         <TextShimmer 
           as="h1"
-          className="text-4xl font-bold mb-2 [--base-color:theme(colors.brand.blue)] [--base-gradient-color:theme(colors.brand.teal)] dark:[--base-color:theme(colors.brand.blue)] dark:[--base-gradient-color:theme(colors.primary)]"
-          duration={3}
+          className="text-4xl font-bold mb-2 [--base-color:#2563EB] [--base-gradient-color:#7C3AED] dark:[--base-color:#3B82F6] dark:[--base-gradient-color:#8B5CF6]"
+          duration={2.5}
         >
           Studio
         </TextShimmer>
