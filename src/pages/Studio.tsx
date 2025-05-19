@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,9 +5,10 @@ import { Send, ArrowRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AIVoiceInput } from "@/components/ui/ai-voice-input";
+import { VoiceOrb } from "@/components/VoiceOrb";
+import { TextShimmer } from "@/components/ui/text-shimmer";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -39,16 +39,6 @@ const Studio = () => {
     transcriptRef.current = transcript;
   }, [transcript]);
   
-  // Track if user has already been shown a "conversation ended" notification
-  const conversationEndedShown = useRef(false);
-  
-  // Clear the flag when starting a new conversation
-  useEffect(() => {
-    if (isListening) {
-      conversationEndedShown.current = false;
-    }
-  }, [isListening]);
-
   const useTranscript = () => {
     if (!transcriptRef.current.trim()) {
       toast({
@@ -68,41 +58,30 @@ const Studio = () => {
     });
   };
 
-  // Handler to stop recording and get duration
-  const handleStopRecording = (duration: number) => {
-    stopConversation();
-    if (duration > 0) {
-      console.log(`Recording stopped after ${duration} seconds`);
-      
-      // Only show the toast once per conversation session
-      if (duration > 2 && !conversationEndedShown.current) {
-        toast({
-          title: "Recording stopped",
-          description: `Your recording lasted ${Math.floor(duration)} seconds.`,
-        });
-        conversationEndedShown.current = true;
-      }
-    }
-  };
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-4xl font-bold mb-2">Studio</h1>
+        <TextShimmer 
+          as="h1"
+          className="text-4xl font-bold mb-2 [--base-color:#2563EB] [--base-gradient-color:#7C3AED] dark:[--base-color:#3B82F6] dark:[--base-gradient-color:#8B5CF6]"
+          duration={2.5}
+        >
+          Studio
+        </TextShimmer>
         <p className="text-muted-foreground">
           Record your thoughts and transform them into engaging tweet threads
         </p>
       </div>
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
-        {/* AIVoiceInput Component */}
-        <div className="mb-8 relative">
-          <AIVoiceInput
+        {/* Voice Orb Component */}
+        <div className="mb-12 relative">
+          <VoiceOrb 
             isListening={isListening}
             isInitializing={isInitializing}
-            onStart={startConversation}
-            onStop={handleStopRecording}
-            visualizerBars={32}
+            connectionAttempts={connectionAttempts}
+            onStartConversation={startConversation}
+            onStopConversation={stopConversation}
           />
         </div>
         
