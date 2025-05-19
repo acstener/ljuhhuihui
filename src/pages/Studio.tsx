@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,15 +59,6 @@ const Studio = () => {
     });
   };
 
-  // Handle conversation start
-  const handleStartRecording = () => {
-    if (isListening) {
-      stopConversation();
-    } else {
-      startConversation();
-    }
-  };
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
@@ -83,11 +75,19 @@ const Studio = () => {
       </div>
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
-        {/* New AIVoiceInput Component */}
+        {/* AIVoiceInput Component with properly connected callbacks */}
         <div className="mb-8">
           <AIVoiceInput 
-            onStart={handleStartRecording}
-            onStop={() => stopConversation()}
+            onStart={() => {
+              if (!isListening) {
+                startConversation();
+              }
+            }}
+            onStop={() => {
+              if (isListening) {
+                stopConversation();
+              }
+            }}
             isListening={isListening}
             isInitializing={isInitializing}
             visualizerBars={36}

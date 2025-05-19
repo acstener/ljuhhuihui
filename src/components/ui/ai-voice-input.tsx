@@ -30,13 +30,15 @@ export function AIVoiceInput({
   const [time, setTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [isDemo, setIsDemo] = useState(demoMode);
+  const [lastListeningState, setLastListeningState] = useState(isListening);
 
   // Update the submitted state when isListening changes from outside
   useEffect(() => {
-    if (!demoMode) {
+    if (!demoMode && lastListeningState !== isListening) {
       setSubmitted(isListening);
+      setLastListeningState(isListening);
     }
-  }, [isListening, demoMode]);
+  }, [isListening, demoMode, lastListeningState]);
 
   useEffect(() => {
     setIsClient(true);
@@ -46,17 +48,24 @@ export function AIVoiceInput({
     let intervalId: NodeJS.Timeout;
 
     if (submitted) {
-      onStart?.();
+      // Only call onStart when the submitted state changes from false to true
+      if (!lastListeningState) {
+        onStart?.();
+      }
+      
       intervalId = setInterval(() => {
         setTime((t) => t + 1);
       }, 1000);
     } else {
-      onStop?.(time);
+      // Only call onStop when the submitted state changes from true to false
+      if (lastListeningState) {
+        onStop?.(time);
+      }
       setTime(0);
     }
 
     return () => clearInterval(intervalId);
-  }, [submitted, time, onStart, onStop]);
+  }, [submitted, time, onStart, onStop, lastListeningState]);
 
   useEffect(() => {
     if (!isDemo) return;
@@ -88,7 +97,9 @@ export function AIVoiceInput({
       setIsDemo(false);
       setSubmitted(false);
     } else if (!isInitializing) {
-      setSubmitted((prev) => !prev);
+      const newState = !submitted;
+      setSubmitted(newState);
+      setLastListeningState(newState);
     }
   };
 

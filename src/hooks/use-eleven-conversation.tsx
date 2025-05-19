@@ -57,6 +57,7 @@ export const useElevenConversation = ({
   const transcriptRef = useRef<string>(initialTranscript);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const isStoppingRef = useRef<boolean>(false); // Add this to track if stopConversation is in progress
 
   // Update transcript ref whenever transcript changes
   useEffect(() => {
@@ -78,6 +79,7 @@ export const useElevenConversation = ({
     setIsConnected(true);
     setConnectionAttempts(0);
     setIsInitializing(false);
+    isStoppingRef.current = false; // Reset the stopping flag when connected
     
     toast({
       title: "Connected",
@@ -96,14 +98,15 @@ export const useElevenConversation = ({
     setIsConnected(false);
     
     // Only attempt reconnect if this was not a manual disconnect
-    if (isListening && !isInitializing && !isUnmountingRef.current) {
+    if (isListening && !isInitializing && !isUnmountingRef.current && !isStoppingRef.current) {
       debugLog("Attempting to reconnect...");
       handleReconnect();
     } else {
       debugLog("Not reconnecting because:", { 
         isListening, 
         isInitializing, 
-        isUnmounting: isUnmountingRef.current
+        isUnmounting: isUnmountingRef.current,
+        isStopping: isStoppingRef.current
       });
       setIsListening(false);
     }
@@ -142,7 +145,7 @@ export const useElevenConversation = ({
       return;
     }
     
-    if (isListening && !isInitializing && !isUnmountingRef.current) {
+    if (isListening && !isInitializing && !isUnmountingRef.current && !isStoppingRef.current) {
       handleReconnect();
     } else {
       setIsListening(false);
@@ -159,8 +162,8 @@ export const useElevenConversation = ({
   });
 
   const handleReconnect = useCallback(() => {
-    if (!isMountedRef.current) {
-      debugLog("handleReconnect called after component unmount - aborting");
+    if (!isMountedRef.current || isStoppingRef.current) {
+      debugLog("handleReconnect called after component unmount or during stop - aborting");
       return;
     }
     
@@ -177,11 +180,11 @@ export const useElevenConversation = ({
       });
       
       reconnectTimeoutRef.current = setTimeout(() => {
-        if (isMountedRef.current) {
+        if (isMountedRef.current && !isStoppingRef.current) {
           setConnectionAttempts(prev => prev + 1);
           startConversation();
         } else {
-          debugLog("Reconnect timeout triggered after component unmount - aborting");
+          debugLog("Reconnect timeout triggered after component unmount or during stop - aborting");
         }
       }, CONNECTION_RETRY_DELAY);
     } else {
@@ -192,12 +195,19 @@ export const useElevenConversation = ({
       });
       setIsListening(false);
       setIsInitializing(false);
+      isStoppingRef.current = false;
     }
   }, [connectionAttempts]);
 
   const startConversation = async () => {
     if (!isMountedRef.current) {
       debugLog("startConversation called after component unmount - aborting");
+      return;
+    }
+    
+    // Don't start if we're in the process of stopping
+    if (isStoppingRef.current) {
+      debugLog("startConversation called while stopping - aborting");
       return;
     }
     
@@ -220,8 +230,8 @@ export const useElevenConversation = ({
       
       // Small delay to ensure cleanup is complete
       setTimeout(async () => {
-        if (!isMountedRef.current) {
-          debugLog("setTimeout callback called after component unmount - aborting");
+        if (!isMountedRef.current || isStoppingRef.current) {
+          debugLog("setTimeout callback called after component unmount or during stop - aborting");
           return;
         }
         
@@ -258,9 +268,22 @@ export const useElevenConversation = ({
   };
 
   const stopConversation = async () => {
+    // If already stopping, don't trigger again
+    if (isStoppingRef.current) {
+      debugLog("stopConversation already in progress - ignoring redundant call");
+      return;
+    }
+    
     try {
+      // Set the flag to indicate we're in the process of stopping
+      isStoppingRef.current = true;
+      
       debugLog("Stopping conversation");
-      await conversation.endSession();
+      
+      // Only try to end session if we're connected
+      if (isConnected) {
+        await conversation.endSession();
+      }
       
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -271,12 +294,18 @@ export const useElevenConversation = ({
       setConnectionAttempts(0);
       setIsInitializing(false);
       
+      // Only show toast once
       toast({
         title: "Conversation Ended",
         description: "You have ended the conversation"
       });
     } catch (error) {
       debugLog("Failed to stop conversation:", error);
+    } finally {
+      // Reset stopping flag after operation completes, regardless of result
+      setTimeout(() => {
+        isStoppingRef.current = false;
+      }, 500); // Add small delay to prevent immediate restart
     }
   };
 
@@ -335,11 +364,15 @@ export const useElevenConversation = ({
     debugLog("ElevenLabs conversation hook initialized");
     isMountedRef.current = true;
     isUnmountingRef.current = false;
+    isStoppingRef.current = false;
     
     return () => {
       debugLog("ElevenLabs conversation hook unmounting");
       isUnmountingRef.current = true;
       isMountedRef.current = false;
+      
+      // Prevent reconnects during unmount
+      isStoppingRef.current = true;
       
       // Cleanup on unmount
       if (isConnected) {
