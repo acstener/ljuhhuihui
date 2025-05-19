@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { VoiceOrb } from "@/components/VoiceOrb";
+import { AIVoiceInput } from "@/components/ui/ai-voice-input";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -57,6 +58,14 @@ const Studio = () => {
     });
   };
 
+  // Handler to stop recording and get duration
+  const handleStopRecording = (duration: number) => {
+    stopConversation();
+    if (duration > 0) {
+      console.log(`Recording stopped after ${duration} seconds`);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
@@ -67,14 +76,14 @@ const Studio = () => {
       </div>
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
-        {/* Voice Orb Component */}
-        <div className="mb-12 relative">
-          <VoiceOrb 
+        {/* AIVoiceInput Component */}
+        <div className="mb-8 relative">
+          <AIVoiceInput
             isListening={isListening}
             isInitializing={isInitializing}
-            connectionAttempts={connectionAttempts}
-            onStartConversation={startConversation}
-            onStopConversation={stopConversation}
+            onStart={startConversation}
+            onStop={handleStopRecording}
+            visualizerBars={32}
           />
         </div>
         
