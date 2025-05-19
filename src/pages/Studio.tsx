@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,10 +5,9 @@ import { Send, ArrowRight } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { TextShimmer } from "@/components/ui/text-shimmer";
-import { AIVoiceInput } from "@/components/ui/ai-voice-input";
+import { VoiceOrb } from "@/components/VoiceOrb";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -40,30 +38,6 @@ const Studio = () => {
     transcriptRef.current = transcript;
   }, [transcript]);
   
-  // Track if we've requested microphone permissions
-  const [hasRequestedPermissions, setHasRequestedPermissions] = useState(false);
-  
-  // Request microphone permissions on component mount
-  useEffect(() => {
-    if (!hasRequestedPermissions) {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
-          .then(() => {
-            console.log("Microphone permission granted in Studio");
-            setHasRequestedPermissions(true);
-          })
-          .catch(error => {
-            console.error("Microphone permission denied in Studio:", error);
-            toast({
-              variant: "destructive",
-              title: "Microphone Access Required",
-              description: "Please allow microphone access to use the voice features."
-            });
-          });
-      }
-    }
-  }, [hasRequestedPermissions, toast]);
-  
   const useTranscript = () => {
     if (!transcriptRef.current.trim()) {
       toast({
@@ -83,59 +57,28 @@ const Studio = () => {
     });
   };
 
-  const handleStartConversation = () => {
-    console.log("Studio handleStartConversation called, current isListening:", isListening);
-    if (!isListening && !isInitializing) {
-      console.log("Starting conversation from Studio");
-      startConversation();
-    } else {
-      console.log("Not starting conversation because isListening:", isListening, "or isInitializing:", isInitializing);
-    }
-  };
-
-  const handleStopConversation = (duration: number) => {
-    console.log("Studio handleStopConversation called, current isListening:", isListening);
-    if (isListening) {
-      console.log("Stopping conversation from Studio after", duration, "seconds");
-      stopConversation();
-    } else {
-      console.log("Not stopping conversation because isListening is false");
-    }
-  };
-
-  // This helps ensure the UI state is synchronized with the hook
-  useEffect(() => {
-    console.log("Studio state update - isListening:", isListening, "isInitializing:", isInitializing, "isConnected:", isConnected);
-  }, [isListening, isInitializing, isConnected]);
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <TextShimmer 
-          as="h1"
-          className="text-4xl font-bold mb-2 [--base-color:#2563EB] [--base-gradient-color:#7C3AED] dark:[--base-color:#3B82F6] dark:[--base-gradient-color:#8B5CF6]"
-          duration={2.5}
-        >
-          Studio
-        </TextShimmer>
+        <h1 className="text-4xl font-bold mb-2">Studio</h1>
         <p className="text-muted-foreground">
           Record your thoughts and transform them into engaging tweet threads
         </p>
       </div>
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
-        {/* AIVoiceInput Component with properly connected callbacks */}
-        <div className="mb-8">
-          <AIVoiceInput 
-            onStart={handleStartConversation}
-            onStop={handleStopConversation}
+        {/* Voice Orb Component */}
+        <div className="mb-12 relative">
+          <VoiceOrb 
             isListening={isListening}
             isInitializing={isInitializing}
-            visualizerBars={36}
+            connectionAttempts={connectionAttempts}
+            onStartConversation={startConversation}
+            onStopConversation={stopConversation}
           />
         </div>
         
-        {/* Transcript Display */}
+        {/* Subtle Transcript Display with improved styling */}
         <div className="w-full transition-all">
           <Card className="rounded-xl overflow-hidden border border-muted/30 bg-card/30 backdrop-blur-sm shadow-sm hover:shadow-md transition-all">
             <CardContent className="p-0">
@@ -172,7 +115,7 @@ const Studio = () => {
             </CardContent>
           </Card>
           
-          {/* Text Input Field */}
+          {/* Text Input Field with subtle styling */}
           {isConnected && (
             <div className="mt-4 w-full">
               <div className="flex gap-2 items-end">
