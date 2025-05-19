@@ -13,6 +13,7 @@ export const useThreadGenerator = () => {
   const [transcript, setTranscript] = useState<string>("");
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [exampleTweets, setExampleTweets] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -22,10 +23,30 @@ export const useThreadGenerator = () => {
     if (savedTranscript) {
       setTranscript(savedTranscript);
       
-      // Auto-generate content if we have a transcript already
-      generateTweets(savedTranscript);
+      // Fetch tone preferences
+      fetchToneExamples();
     }
   }, []);
+
+  // Fetch tone examples from user's preferences
+  const fetchToneExamples = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tone_preferences")
+        .select("example_tweets")
+        .limit(1)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw new Error(error.message);
+      
+      if (data && data.length > 0 && data[0].example_tweets) {
+        setExampleTweets(data[0].example_tweets);
+        console.log("Loaded tone examples:", data[0].example_tweets);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch tone examples:", err);
+    }
+  };
 
   const generateTweets = async (text = transcript) => {
     if (!text.trim()) {
@@ -43,7 +64,8 @@ export const useThreadGenerator = () => {
       const { data, error } = await supabase.functions.invoke('generate-threads', {
         body: { 
           transcript: text,
-          count: 5
+          count: 5,
+          exampleTweets: exampleTweets
         }
       });
       
@@ -109,6 +131,7 @@ export const useThreadGenerator = () => {
     transcript,
     tweets,
     isGenerating,
+    exampleTweets,
     generateTweets,
     handleUpdateTweet,
     handleDeleteTweet,

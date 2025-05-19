@@ -47,6 +47,9 @@ export const ContentPlaceholder = ({
             ? "Generating authentic content from your transcript..." 
             : "Please provide a transcript to generate content from."}
         </p>
+        <p className="text-xs text-muted-foreground/70 mt-2">
+          For more personalized content, train your tone in the dashboard.
+        </p>
       </CardContent>
     </Card>
   );

@@ -1,210 +1,124 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect, createContext, useContext } from "react";
-import { supabase } from "./integrations/supabase/client";
-import { Session, User } from "@supabase/supabase-js";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  ReactNode,
+} from "react";
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate,
+} from "react-router-dom";
+import { createClient } from "@supabase/supabase-js";
+import { Auth } from "@supabase/auth-ui-react";
+import { ThemeSupa } from "@supabase/auth-ui-shared";
+import DashboardLayout from "@/layouts/DashboardLayout";
+import Dashboard from "@/pages/Dashboard";
+import Studio from "@/pages/Studio";
+import TranscriptEditor from "@/pages/TranscriptEditor";
+import ThreadGenerator from "@/pages/ThreadGenerator";
+import TrainTone from "./pages/TrainTone";
 
-// Pages
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import UploadVideo from "./pages/UploadVideo";
-import TranscriptView from "./pages/TranscriptView";
-import ThreadGenerator from "./pages/ThreadGenerator";
-import TranscriptInput from "./pages/TranscriptInput";
-import TranscriptEditor from "./pages/TranscriptEditor"; // Import the new page
-import Studio from "./pages/Studio";
-import NotFound from "./pages/NotFound";
-import AuthLayout from "./layouts/AuthLayout";
-import DashboardLayout from "./layouts/DashboardLayout";
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || "";
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Auth context
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  user: any;
+  session: any;
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [session, setSession] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
+  }, []);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+  };
+
+  const value: AuthContextType = {
+    user,
+    session,
+    logout,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
-const queryClient = new QueryClient();
-
 const App = () => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  
-  // Use loading flag to prevent UI flicker during auth state changes
-  const [initializing, setInitializing] = useState(true);
-  
-  // Set up auth state listener and check for existing session
-  useEffect(() => {
-    // Prevent multiple re-renders by tracking initialization
-    let isInitialized = false;
-    
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
-        console.log("Auth state changed", event);
-        // Only update state if there's an actual change
-        if (JSON.stringify(currentSession) !== JSON.stringify(session)) {
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      if (!isInitialized) {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        setLoading(false);
-        setInitializing(false);
-        isInitialized = true;
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const login = async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      
-    } catch (error: any) {
-      console.error("Error logging in:", error.message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      
-    } catch (error: any) {
-      console.error("Error registering:", error.message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (error: any) {
-      console.error("Error logging out:", error.message);
-    }
-  };
-
-  // Create a memoized auth context value to prevent unnecessary re-renders
-  const authContextValue = {
-    session,
-    user,
-    loading,
-    login,
-    register,
-    logout
-  };
+  const { user, session } = useAuth();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={authContextValue}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Show loading state during initialization */}
-              {initializing ? (
-                <Route path="*" element={<div>Loading...</div>} />
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/dashboard" replace />
               ) : (
-                <>
-                  {/* Auth routes */}
-                  <Route element={<AuthLayout />}>
-                    <Route path="/login" element={
-                      !session ? <Login /> : <Navigate to="/dashboard" />
-                    } />
-                    <Route path="/register" element={
-                      !session ? <Register /> : <Navigate to="/dashboard" />
-                    } />
-                  </Route>
-                  
-                  {/* App routes - protected */}
-                  <Route element={<DashboardLayout />}>
-                    <Route path="/dashboard" element={
-                      session ? <Dashboard /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/upload" element={
-                      session ? <UploadVideo /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/transcript/:videoId" element={
-                      session ? <TranscriptView /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/generate/:clipId" element={
-                      session ? <ThreadGenerator /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/generate/new" element={
-                      session ? <ThreadGenerator /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/input-transcript" element={
-                      session ? <TranscriptInput /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/transcript-editor" element={
-                      session ? <TranscriptEditor /> : <Navigate to="/login" />
-                    } />
-                    <Route path="/studio" element={
-                      session ? <Studio /> : <Navigate to="/login" />
-                    } />
-                  </Route>
-                  
-                  {/* Redirect root to login or dashboard based on auth state */}
-                  <Route path="/" element={
-                    loading ? <div>Loading...</div> : 
-                    session ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
-                  } />
-                  
-                  {/* Catch-all */}
-                  <Route path="*" element={<NotFound />} />
-                </>
-              )}
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthContext.Provider>
-    </QueryClientProvider>
+                <div className="flex justify-center items-center h-screen bg-gray-100">
+                  <div className="p-8 bg-white shadow-md rounded-lg w-96">
+                    <h1 className="text-2xl font-semibold text-center mb-4">
+                      Login
+                    </h1>
+                    <Auth
+                      supabaseClient={supabase}
+                      appearance={{ theme: ThemeSupa }}
+                      providers={["google", "github"]}
+                      redirectTo={`${window.location.origin}/dashboard`}
+                    />
+                  </div>
+                </div>
+              )
+            }
+          />
+
+          <Route path="/" element={<DashboardLayout />}>
+            <Route index element={<Navigate to="/dashboard" />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="studio" element={<Studio />} />
+            <Route path="transcript-editor" element={<TranscriptEditor />} />
+            <Route path="generate/new" element={<ThreadGenerator />} />
+            <Route path="train-tone" element={<TrainTone />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 };
 
+export { useAuth };
 export default App;
