@@ -74,6 +74,15 @@ const ThreadGenerator = () => {
     }
   };
 
+  // Use default Gemini API key if provided
+  useEffect(() => {
+    const defaultApiKey = "AIzaSyBi7hpkLqfS9r0UAn4uPUlUTjYUzqGXVVQ";
+    if (defaultApiKey && !apiKeySet) {
+      setApiKey(defaultApiKey);
+      setApiKeyInput(defaultApiKey);
+    }
+  }, [apiKeySet, setApiKey]);
+
   return (
     <div className="space-y-6 pb-8">
       <div className="flex items-center justify-between">
@@ -136,19 +145,19 @@ const ThreadGenerator = () => {
       <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enter OpenAI API Key</DialogTitle>
+            <DialogTitle>Enter Gemini API Key</DialogTitle>
             <DialogDescription>
-              We need your OpenAI API key to generate content. This is stored locally on your device only.
+              We need your Gemini API key to generate content. This is stored locally on your device only.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="apiKey">OpenAI API Key</Label>
+              <Label htmlFor="apiKey">Gemini API Key</Label>
               <div className="flex">
                 <Input
                   id="apiKey"
                   type="password"
-                  placeholder="sk-..."
+                  placeholder="AIzaSy..."
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   className="flex-1"

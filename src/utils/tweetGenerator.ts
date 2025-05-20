@@ -1,8 +1,8 @@
 
-import { OpenAI } from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Store API key in memory - for development only
-let openAIApiKey: string | null = null;
+let geminiApiKey: string | null = null;
 
 export interface GeneratedTweet {
   tweet: string;
@@ -10,15 +10,15 @@ export interface GeneratedTweet {
 }
 
 export const setOpenAIKey = (key: string) => {
-  openAIApiKey = key;
-  localStorage.setItem("openai_key", key);
+  geminiApiKey = key;
+  localStorage.setItem("gemini_key", key);
 };
 
 export const getOpenAIKey = (): string | null => {
-  if (!openAIApiKey) {
-    openAIApiKey = localStorage.getItem("openai_key");
+  if (!geminiApiKey) {
+    geminiApiKey = localStorage.getItem("gemini_key");
   }
-  return openAIApiKey;
+  return geminiApiKey;
 };
 
 export const generateTweetsFromTranscript = async (
@@ -29,7 +29,7 @@ export const generateTweetsFromTranscript = async (
   const apiKey = getOpenAIKey();
   
   if (!apiKey) {
-    throw new Error("OpenAI API key not set. Please set your API key first.");
+    throw new Error("Gemini API key not set. Please set your API key first.");
   }
 
   if (!transcript || transcript.trim().length === 0) {
@@ -37,10 +37,8 @@ export const generateTweetsFromTranscript = async (
   }
 
   try {
-    const openai = new OpenAI({
-      apiKey: apiKey,
-      dangerouslyAllowBrowser: true // Note: In production, use server-side API calls
-    });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Build system prompt
     let systemPrompt = `You transform conversation transcripts into authentic, raw social media posts.
@@ -71,39 +69,43 @@ export const generateTweetsFromTranscript = async (
       });
     }
 
+    systemPrompt += `\n\nOutput the results in valid JSON format with this structure:
+    {
+      "tweets": [
+        {"tweet": "First tweet content here"},
+        {"tweet": "Second tweet content here"},
+        // and so on
+      ]
+    }`;
+
     console.log("Generating authentic content from transcript:", { transcriptLength: transcript.length });
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        { 
-          role: "user", 
-          content: transcript 
-        }
-      ],
-      response_format: { type: "json_object" }
-    });
-
-    const content = response.choices[0]?.message?.content;
+    const prompt = systemPrompt + "\n\nTranscript:\n" + transcript;
     
-    if (!content) {
-      throw new Error("Failed to generate content");
-    }
-
-    // Parse the JSON response
-    const parsedContent = JSON.parse(content);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const textContent = response.text();
     
-    if (parsedContent && Array.isArray(parsedContent.tweets)) {
-      return parsedContent.tweets;
-    } else if (Array.isArray(parsedContent)) {
-      return parsedContent;
+    // Extract the JSON part from the response
+    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Failed to extract JSON from response");
     }
     
-    throw new Error("Invalid response format");
+    try {
+      const parsedContent = JSON.parse(jsonMatch[0]);
+      
+      if (parsedContent && Array.isArray(parsedContent.tweets)) {
+        return parsedContent.tweets;
+      } else if (Array.isArray(parsedContent)) {
+        return parsedContent;
+      }
+      
+      throw new Error("Invalid response format");
+    } catch (jsonError) {
+      console.error("Error parsing JSON from response:", jsonError);
+      throw new Error("Failed to parse JSON response from Gemini");
+    }
   } catch (error: any) {
     console.error("Error generating tweets:", error);
     throw new Error(`Failed to generate tweets: ${error.message || "Unknown error"}`);

@@ -59,7 +59,7 @@ export const OptionsPanel = ({
               className="w-full"
             >
               <Key className="h-4 w-4 mr-2" />
-              {apiKeySet ? "Change API Key" : "Set OpenAI API Key"}
+              {apiKeySet ? "Change Gemini API Key" : "Set Gemini API Key"}
             </Button>
           )}
         </CardContent>
