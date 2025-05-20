@@ -208,39 +208,39 @@ const Studio = () => {
 
   return (
     <div className="flex flex-col items-center min-h-[80vh] px-4 pt-16 pb-8 relative">
-      {/* Navigation header */}
-      <div className="w-full max-w-3xl flex justify-between items-center fixed top-0 left-1/2 -translate-x-1/2 py-4 px-4 bg-background/80 backdrop-blur-sm z-10">
+      {/* Responsive navigation header */}
+      <div className="w-full max-w-3xl flex flex-wrap justify-between items-center sticky top-0 left-0 right-0 py-4 px-4 bg-background/80 backdrop-blur-sm z-10 gap-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1 text-xs sm:text-sm sm:gap-2"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
+          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="whitespace-nowrap">Back to Dashboard</span>
         </Button>
         
         <Button
           onClick={useTranscript}
           disabled={!transcript.trim() || isSaving}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 font-medium"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm ml-auto"
           size="sm"
         >
           {isSaving ? "Processing..." : "Generate Content"}
-          <Zap className="h-4 w-4" />
+          <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
         </Button>
       </div>
       
-      <div className="text-center max-w-2xl mx-auto mb-12 mt-4">
-        <h1 className="text-4xl font-bold mb-3">Studio</h1>
-        <p className="text-muted-foreground">
+      <div className="text-center max-w-2xl mx-auto mb-8 mt-8">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2 sm:mb-3">Studio</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
           Record your thoughts and transform them into authentic content
         </p>
       </div>
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
         {/* Voice Orb Component */}
-        <div className="mb-16 relative">
+        <div className="mb-10 sm:mb-16 relative">
           <VoiceOrb 
             isListening={isListening}
             isInitializing={isInitializing}
@@ -298,8 +298,8 @@ const Studio = () => {
                 />
                 <Button 
                   onClick={sendTextMessage} 
-                  variant="ghost"
                   disabled={!userInput.trim()}
+                  variant="ghost"
                   className="h-10 w-10 p-0 rounded-full bg-primary/5 hover:bg-primary/10 transition-colors"
                 >
                   <Send className="h-4 w-4 text-primary" />
