@@ -109,7 +109,12 @@ const ThreadGenerator = () => {
 
   const handleBackToDashboard = () => {
     // Pass state to indicate we're coming from content generation
-    navigate("/dashboard", { state: { fromContentGeneration: true }});
+    navigate("/dashboard", { 
+      state: { 
+        fromContentGeneration: true,
+        updatedAt: new Date().toISOString() // Add a timestamp to force a refresh
+      }
+    });
   };
 
   const handleViewSession = () => {

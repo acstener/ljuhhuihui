@@ -93,6 +93,8 @@ export const useThreadGenerator = () => {
         setSessionId(newSessionId);
         localStorage.setItem("currentSessionId", newSessionId);
         return newSessionId;
+      } else {
+        console.error("No session data returned after insert");
       }
     } catch (err) {
       console.error("Error in createNewSession:", err);
@@ -103,18 +105,30 @@ export const useThreadGenerator = () => {
 
   // Fetch tone examples from user's preferences
   const fetchToneExamples = async () => {
+    if (!user) {
+      console.log("Cannot fetch tone examples: No authenticated user");
+      return;
+    }
+    
     try {
+      console.log("Fetching tone examples for user:", user.id);
       const { data, error } = await supabase
         .from("tone_preferences")
         .select("example_tweets")
+        .eq("user_id", user.id)
         .limit(1)
         .order('created_at', { ascending: false });
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Error fetching tone examples:", error);
+        throw new Error(error.message);
+      }
       
       if (data && data.length > 0 && data[0].example_tweets) {
         setExampleTweets(data[0].example_tweets);
         console.log("Loaded tone examples:", data[0].example_tweets);
+      } else {
+        console.log("No tone examples found for user");
       }
     } catch (err: any) {
       console.error("Failed to fetch tone examples:", err);
@@ -189,7 +203,10 @@ export const useThreadGenerator = () => {
             })
             .eq('id', activeSessionId);
             
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error("Failed to update session with transcript:", updateError);
+            throw updateError;
+          }
         } catch (err) {
           console.error("Failed to update session with transcript:", err);
         }
@@ -198,7 +215,7 @@ export const useThreadGenerator = () => {
       // Now save tweets to Supabase with the session ID
       if (activeSessionId) {
         try {
-          console.log("Saving generated content for session:", activeSessionId);
+          console.log("Saving generated content for session:", activeSessionId, "and user:", user.id);
           const tweetsToSave = generatedTweets.map((tweet: GeneratedTweet) => ({
             user_id: user.id,
             session_id: activeSessionId,
@@ -206,21 +223,36 @@ export const useThreadGenerator = () => {
             topic: tweet.topic || null
           }));
           
-          const { error: insertError } = await supabase
-            .from('generated_content')
-            .insert(tweetsToSave);
-            
-          if (insertError) throw insertError;
+          // Log the data we're about to insert for debugging
+          console.log("About to insert content:", tweetsToSave);
           
-          console.log("Saved generated content to Supabase");
+          const { data, error: insertError } = await supabase
+            .from('generated_content')
+            .insert(tweetsToSave)
+            .select();
+            
+          if (insertError) {
+            console.error("Failed to save generated content:", insertError);
+            throw insertError;
+          }
+          
+          console.log("Successfully saved content to Supabase:", data);
           
           // Force refresh the session in localStorage to ensure it's picked up on dashboard
           localStorage.setItem("currentSessionId", activeSessionId);
           
           // Trigger a custom event that the dashboard can listen for
           window.dispatchEvent(new CustomEvent('content-generated', { 
-            detail: { sessionId: activeSessionId }
+            detail: { sessionId: activeSessionId, userId: user.id }
           }));
+          
+          // Add a timestamp to help with debugging
+          localStorage.setItem("lastContentGenerated", new Date().toISOString());
+          
+          toast({
+            title: "Content Generated",
+            description: "Your content was successfully generated and saved",
+          });
         } catch (err) {
           console.error("Failed to save generated content:", err);
           toast({

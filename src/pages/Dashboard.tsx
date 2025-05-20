@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/App";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 // Define types for our data
 interface Session {
@@ -31,12 +32,19 @@ const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   
   // Check for content-generated event
   useEffect(() => {
     const handleContentGenerated = (event: CustomEvent) => {
       console.log("Content generated event detected, refreshing sessions");
-      fetchSessions();
+      const { sessionId, userId } = event.detail;
+      console.log("Event details:", { sessionId, userId, currentUser: user?.id });
+      
+      // Only refresh if the event is for the current user
+      if (userId === user?.id) {
+        fetchSessions();
+      }
     };
     
     // Type assertion to work with CustomEvent
@@ -45,7 +53,7 @@ const Dashboard = () => {
     return () => {
       window.removeEventListener('content-generated', handleContentGenerated as EventListener);
     };
-  }, []);
+  }, [user]);
   
   // Fetch sessions from Supabase
   const fetchSessions = async () => {
@@ -63,7 +71,7 @@ const Dashboard = () => {
         .from('sessions')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(6);
         
       if (sessionError) {
@@ -72,13 +80,58 @@ const Dashboard = () => {
       }
       
       console.log("Fetched sessions:", sessionData?.length || 0);
+      
+      if (sessionData && sessionData.length > 0) {
+        console.log("Session data sample:", sessionData[0]);
+      }
+      
       setSessions(sessionData || []);
+      
+      // If we just went through the content generation flow but no sessions were found,
+      // show a message to the user
+      if (location.state?.fromContentGeneration && (!sessionData || sessionData.length === 0)) {
+        toast({
+          title: "No content found",
+          description: "Your content may not have been saved correctly. Try refreshing or generating again.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error fetching sessions:", error);
+      toast({
+        title: "Error loading sessions",
+        description: "Could not load your recent sessions. Please try refreshing.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Check for localStorage indicators that content was generated
+  useEffect(() => {
+    const checkForContentGeneration = () => {
+      const lastGenerated = localStorage.getItem("lastContentGenerated");
+      const currentSessionId = localStorage.getItem("currentSessionId");
+      
+      if (lastGenerated && currentSessionId) {
+        const timestamp = new Date(lastGenerated).getTime();
+        const now = new Date().getTime();
+        const fiveMinutesAgo = now - (5 * 60 * 1000); // 5 minutes in milliseconds
+        
+        // If content was generated in the last 5 minutes, refresh
+        if (timestamp > fiveMinutesAgo) {
+          console.log("Recent content generation detected, refreshing sessions");
+          fetchSessions();
+          
+          // Clear the lastContentGenerated flag after refreshing
+          localStorage.removeItem("lastContentGenerated");
+        }
+      }
+    };
+    
+    checkForContentGeneration();
+  }, []);
 
   // Check for returning from content generation
   useEffect(() => {
