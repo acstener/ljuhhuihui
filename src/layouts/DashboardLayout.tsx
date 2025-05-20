@@ -27,29 +27,27 @@ const DashboardLayout = () => {
     prevPathRef.current = location.pathname;
   }, [location.pathname]);
 
-  // Enhanced NavLink handler that's even more strict about preventing navigation events
+  // Improved NavLink handler with much shorter timeout
   const handleNavLinkClick = useCallback((path: string, e: React.MouseEvent) => {
-    // If already on this route, always prevent default navigation
-    if (location.pathname === path || prevPathRef.current === path) {
+    // If already on this route, prevent default navigation
+    if (location.pathname === path) {
       e.preventDefault();
-      e.stopPropagation();
       return false;
     }
     
-    // Rate limiting to prevent rapid clicks
+    // Simple rate limiting with much shorter timeout (200ms instead of 1000ms)
     if (clickHandledRef.current) {
       e.preventDefault();
-      e.stopPropagation();
       return false;
     }
     
-    // Set navigation lock for 1 second (increased from 500ms)
+    // Set navigation lock for a very short time - just enough to prevent double-clicks
     clickHandledRef.current = true;
     setTimeout(() => {
       clickHandledRef.current = false;
-    }, 1000);
+    }, 200);
     
-    // Ensure we update our path tracking
+    // Update our path tracking
     prevPathRef.current = path;
     return true;
   }, [location.pathname]);
