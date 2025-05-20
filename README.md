@@ -1,73 +1,73 @@
-# Welcome to your Lovable project
 
-## Project info
+# Voice-Powered Content Generation Platform
 
-**URL**: https://lovable.dev/projects/425c90e8-2f88-413c-8057-0fffc8c5ca92
+## Overview
 
-## How can I edit this code?
+This application helps users generate authentic content by recording their spoken thoughts and transforming them into ready-to-share social media posts and content. It uses ElevenLabs voice AI for natural conversations, processes the transcripts, and generates polished content that matches the user's authentic voice.
 
-There are several ways of editing your application.
+## Core Features
 
-**Use Lovable**
+- **Voice Recording Studio**: Have natural conversations with an AI assistant
+- **Content Generation**: Transform conversations into polished social media posts
+- **Content Management**: Edit, organize, and manage your generated content
+- **Voice Training**: Train the system to match your authentic tone and style
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/425c90e8-2f88-413c-8057-0fffc8c5ca92) and start prompting.
+## Technology Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: Supabase (Authentication, Database, Storage)
+- **Voice AI**: ElevenLabs Conversation API
+- **Hosting**: [Your hosting provider]
 
-**Use your preferred IDE**
+## Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+For detailed setup instructions, see the [Local Development Guide](./docs/LOCAL_DEVELOPMENT.md).
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Quick Start
 
-Follow these steps:
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up environment variables (see below)
+4. Run the development server: `npm run dev`
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Environment Variables
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Create a `.env` file with the following:
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+VITE_SUPABASE_URL=<your-supabase-url>
+VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
+VITE_ELEVENLABS_API_KEY=<your-elevenlabs-api-key>
 ```
 
-**Edit a file directly in GitHub**
+## Documentation
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- [Project Documentation](./docs/README.md) - Complete project overview
+- [ElevenLabs Integration](./docs/ELEVENLABS.md) - Details about the voice AI integration
+- [Local Development](./docs/LOCAL_DEVELOPMENT.md) - Setup and development workflow
 
-**Use GitHub Codespaces**
+## Main Application Flow
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. **Authentication**: Users sign up/login via Supabase authentication
+2. **Studio**: Users record conversations with the AI assistant
+3. **Content Generation**: The system processes the transcript and generates content
+4. **Management**: Users can edit, organize, and export their content
 
-## What technologies are used for this project?
+## Key Components
 
-This project is built with:
+- **Studio**: Voice recording and conversation interface
+- **Thread Generator**: Content generation and editing interface
+- **Dashboard**: Session management and overview
+- **Voice Training**: Tools to train the system on the user's voice and style
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Contributing
 
-## How can I deploy this project?
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for information on how to contribute to this project.
 
-Simply open [Lovable](https://lovable.dev/projects/425c90e8-2f88-413c-8057-0fffc8c5ca92) and click on Share -> Publish.
+## License
 
-## Can I connect a custom domain to my Lovable project?
+[Specify your license here]
 
-Yes, you can!
+## Support
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+[Provide contact information or support resources]
