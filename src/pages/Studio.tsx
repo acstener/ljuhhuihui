@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -169,9 +168,9 @@ const Studio = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4 relative">
+    <div className="flex flex-col items-center min-h-[80vh] px-4 pt-16 pb-8 relative">
       {/* Navigation header */}
-      <div className="w-full max-w-3xl flex justify-between items-center mb-6 absolute top-0 left-1/2 -translate-x-1/2 py-4">
+      <div className="w-full max-w-3xl flex justify-between items-center fixed top-0 left-1/2 -translate-x-1/2 py-4 px-4 bg-background/80 backdrop-blur-sm z-10">
         <Button
           variant="ghost"
           size="sm"
@@ -193,8 +192,8 @@ const Studio = () => {
         </Button>
       </div>
       
-      <div className="text-center max-w-2xl mx-auto mb-10 mt-10">
-        <h1 className="text-4xl font-bold mb-2">Studio</h1>
+      <div className="text-center max-w-2xl mx-auto mb-12 mt-4">
+        <h1 className="text-4xl font-bold mb-3">Studio</h1>
         <p className="text-muted-foreground">
           Record your thoughts and transform them into authentic content
         </p>
@@ -202,7 +201,7 @@ const Studio = () => {
       
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
         {/* Voice Orb Component */}
-        <div className="mb-12 relative">
+        <div className="mb-16 relative">
           <VoiceOrb 
             isListening={isListening}
             isInitializing={isInitializing}
@@ -212,39 +211,39 @@ const Studio = () => {
           />
         </div>
         
-        {/* Simplified Transcript Display */}
-        <div className="w-full transition-all">
-          <Card className="rounded-xl overflow-hidden border border-muted/30">
+        {/* Improved Transcript Display */}
+        <div className="w-full">
+          <Card className="rounded-xl overflow-hidden border-0 bg-transparent">
             <CardContent className="p-0">
-              <ScrollArea className="max-h-[300px]">
-                <div className="p-4">
-                  <div className="rounded-lg p-4 min-h-[150px] whitespace-pre-wrap font-light">
-                    {transcript ? (
-                      <div className="text-sm leading-relaxed">{transcript}</div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground/60">
-                        <p className="italic text-sm">
-                          {isListening 
-                            ? "Listening... speak clearly" 
-                            : "Start a conversation to see the transcript here"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+              <ScrollArea className="max-h-[320px]">
+                <div className="p-2">
+                  {transcript ? (
+                    <div className="text-base leading-relaxed font-normal text-foreground whitespace-pre-wrap">
+                      {transcript}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-32 text-center">
+                      <p className="text-muted-foreground font-normal">
+                        {isListening 
+                          ? "Listening... speak clearly" 
+                          : "Start a conversation to see the transcript here"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
           
-          {/* Text Input Field with subtle styling */}
+          {/* Text Input Field */}
           {isConnected && (
-            <div className="mt-4 w-full">
+            <div className="mt-6 w-full">
               <div className="flex gap-2 items-end">
                 <Textarea
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 resize-none bg-background/50 border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30"
+                  className="flex-1 resize-none bg-background border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg"
                 />
                 <Button 
                   onClick={sendTextMessage} 
