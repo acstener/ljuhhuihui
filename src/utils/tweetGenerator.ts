@@ -78,7 +78,11 @@ export const generateTweetsFromTranscript = async (
       ]
     }`;
 
-    console.log("Generating authentic content from transcript:", { transcriptLength: transcript.length });
+    console.log("Generating authentic content from transcript:", { 
+      transcriptLength: transcript.length,
+      exampleTweetsCount: exampleTweets.length,
+      generationId: Date.now() // Add timestamp to help identify unique generation requests
+    });
     
     const prompt = systemPrompt + "\n\nTranscript:\n" + transcript;
     

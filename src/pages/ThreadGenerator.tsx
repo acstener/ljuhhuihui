@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+
+import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
 import { OptionsPanel } from "@/components/thread/OptionsPanel";
@@ -32,6 +33,9 @@ const ThreadGenerator = () => {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(!apiKeySet);
   
+  // Flag to track if content generation has been triggered
+  const generationTriggered = useRef(false);
+  
   // Get session ID from location state if available
   useEffect(() => {
     if (location.state?.sessionId) {
@@ -42,7 +46,19 @@ const ThreadGenerator = () => {
   
   // Auto-generate tweets when component loads if transcript exists and API key is set
   useEffect(() => {
-    if (transcript && tweets.length === 0 && !isGenerating && apiKeySet) {
+    // Only generate tweets if:
+    // 1. We have a transcript
+    // 2. No tweets are already loaded
+    // 3. Not currently generating
+    // 4. API key is set
+    // 5. Content generation hasn't been triggered before
+    if (transcript && 
+        tweets.length === 0 && 
+        !isGenerating && 
+        apiKeySet && 
+        !generationTriggered.current) {
+      console.log("Triggering initial content generation");
+      generationTriggered.current = true;
       generateTweets();
     }
   }, [transcript, tweets.length, isGenerating, generateTweets, apiKeySet]);
@@ -52,8 +68,10 @@ const ThreadGenerator = () => {
       setApiKey(apiKeyInput.trim());
       setApiKeyDialogOpen(false);
       
-      // Generate tweets if transcript exists
-      if (transcript && tweets.length === 0) {
+      // Generate tweets if transcript exists and we haven't generated before
+      if (transcript && tweets.length === 0 && !generationTriggered.current) {
+        console.log("Triggering content generation after API key set");
+        generationTriggered.current = true;
         generateTweets();
       }
     }
@@ -82,6 +100,12 @@ const ThreadGenerator = () => {
     }
   }, [apiKeySet, setApiKey]);
 
+  // Handle manual regeneration request
+  const handleRegenerate = () => {
+    console.log("Manual regeneration requested");
+    generateTweets();
+  };
+
   return (
     <div className="space-y-6 pb-8">
       <div className="flex items-center justify-between">
@@ -107,7 +131,7 @@ const ThreadGenerator = () => {
         <OptionsPanel
           isGenerating={isGenerating}
           hasContent={tweets.length > 0}
-          onRegenerate={() => generateTweets()}
+          onRegenerate={handleRegenerate}
           onDownloadAll={handleDownloadAll}
           onBackToTranscript={handleBackToStudio}
           onOpenApiKeyDialog={() => setApiKeyDialogOpen(true)}
@@ -121,7 +145,7 @@ const ThreadGenerator = () => {
               isLoading={isGenerating} 
               hasTranscript={!!transcript.trim()}
               error={error}
-              onRetry={() => generateTweets()}
+              onRetry={handleRegenerate}
             />
           ) : (
             <div className="space-y-4">
