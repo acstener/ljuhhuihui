@@ -12,9 +12,9 @@ export interface ContentItemProps {
     topic?: string;
     edited?: boolean;
   };
-  index: number;
-  onUpdate: (index: number, newText: string) => void;
-  onDelete: (index: number) => void;
+  index: number | string;
+  onUpdate: (index: number | string, newText: string) => void;
+  onDelete: (index: number | string) => void;
   onCopy: (text: string) => void;
 }
 

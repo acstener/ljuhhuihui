@@ -21,6 +21,7 @@ import Dashboard from "@/pages/Dashboard";
 import Studio from "@/pages/Studio";
 import TranscriptEditor from "@/pages/TranscriptEditor";
 import ThreadGenerator from "@/pages/ThreadGenerator";
+import SessionView from "@/pages/SessionView";
 import TrainTone from "./pages/TrainTone";
 import { supabase } from "./integrations/supabase/client";
 
@@ -125,6 +126,7 @@ const App = () => {
             <Route path="transcript-editor" element={<TranscriptEditor />} />
             <Route path="generate/new" element={<ThreadGenerator />} />
             <Route path="train-tone" element={<TrainTone />} />
+            <Route path="session/:id" element={<SessionView />} />
           </Route>
         </Routes>
       </AuthProvider>

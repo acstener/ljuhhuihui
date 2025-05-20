@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders } from "lucide-react";
@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // Fetch sessions from Supabase
   useEffect(() => {
@@ -60,6 +61,15 @@ const Dashboard = () => {
       fetchSessions();
     }
   }, [user?.id]);
+
+  const handleViewSession = (session: Session) => {
+    navigate(`/session/${session.id}`, { 
+      state: { 
+        sessionId: session.id, 
+        transcript: session.transcript 
+      }
+    });
+  };
 
   // Format the session date for display
   const formatSessionDate = (dateString: string) => {
@@ -147,7 +157,11 @@ const Dashboard = () => {
           </Card>
         ) : (
           sessions.map((session) => (
-            <Card key={session.id} className="hover:shadow-md transition-all">
+            <Card 
+              key={session.id} 
+              className="hover:shadow-md transition-all cursor-pointer"
+              onClick={() => handleViewSession(session)}
+            >
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-base">{session.title}</CardTitle>
@@ -165,17 +179,35 @@ const Dashboard = () => {
                   )}
                 </p>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex justify-between">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs"
+                >
+                  View Content
+                  <MessageSquare className="ml-2 h-3 w-3" />
+                </Button>
+                
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   asChild 
-                  className="w-full text-xs"
+                  className="text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/generate/new`, { 
+                      state: { 
+                        sessionId: session.id, 
+                        transcript: session.transcript 
+                      }
+                    });
+                  }}
                 >
-                  <Link to={`/generate/new`} state={{ sessionId: session.id, transcript: session.transcript }}>
-                    Generate Content
+                  <span>
+                    Generate
                     <Sparkles className="ml-2 h-3 w-3" />
-                  </Link>
+                  </span>
                 </Button>
               </CardFooter>
             </Card>

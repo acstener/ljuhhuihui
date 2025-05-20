@@ -5,6 +5,8 @@ import { ContentItem } from "@/components/thread/ContentItem";
 import { OptionsPanel } from "@/components/thread/OptionsPanel";
 import { ContentPlaceholder } from "@/components/thread/ContentPlaceholder";
 import { useThreadGenerator } from "@/hooks/use-thread-generator";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 const ThreadGenerator = () => {
   const location = useLocation();
@@ -43,13 +45,34 @@ const ThreadGenerator = () => {
     navigate("/transcript-editor", { state: { transcript, sessionId } });
   };
 
+  const handleBackToDashboard = () => {
+    navigate("/dashboard");
+  };
+
+  const handleViewSession = () => {
+    if (sessionId) {
+      navigate(`/session/${sessionId}`);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-8">
-      <div>
-        <h1 className="text-3xl font-bold">Generated Content</h1>
-        <p className="text-muted-foreground mt-1">
-          Review and edit your authentic content before sharing
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <Button variant="ghost" onClick={handleBackToDashboard} className="mb-4">
+            <ArrowLeft className="mr-2" size={16} /> Back to Dashboard
+          </Button>
+          <h1 className="text-3xl font-bold">Generated Content</h1>
+          <p className="text-muted-foreground mt-1">
+            Review and edit your authentic content before sharing
+          </p>
+        </div>
+        
+        {sessionId && (
+          <Button variant="outline" onClick={handleViewSession}>
+            View All Session Content
+          </Button>
+        )}
       </div>
       
       <div className="grid gap-6 md:grid-cols-3">
