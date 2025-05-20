@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +26,7 @@ const Dashboard = () => {
         <p className="text-muted-foreground">Create and manage your content from one place</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Create new session card */}
         <Card className="border bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-md transition-all">
           <Link to="/studio" className="block h-full">
@@ -38,21 +37,6 @@ const Dashboard = () => {
               <h3 className="text-lg font-medium">Record New Session</h3>
               <p className="text-sm text-muted-foreground mt-2 text-center">
                 Create a new AI-assisted recording session
-              </p>
-            </CardContent>
-          </Link>
-        </Card>
-        
-        {/* Input transcript card */}
-        <Card className="border bg-gradient-to-br from-secondary/5 to-secondary/10 hover:shadow-md transition-all">
-          <Link to="/transcript-editor" className="block h-full">
-            <CardContent className="flex flex-col items-center justify-center h-full p-8">
-              <div className="rounded-full bg-secondary/10 p-4 mb-4 group-hover:bg-secondary/20 transition-colors">
-                <FileText className="h-8 w-8 text-secondary" />
-              </div>
-              <h3 className="text-lg font-medium">Create from Text</h3>
-              <p className="text-sm text-muted-foreground mt-2 text-center">
-                Generate content from a text transcript
               </p>
             </CardContent>
           </Link>
@@ -118,7 +102,7 @@ const Dashboard = () => {
       
       <div className="pt-8">
         <h2 className="text-xl font-medium mb-4">Get Started</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Record a Session</CardTitle>
@@ -133,25 +117,6 @@ const Dashboard = () => {
                 <Link to="/studio">
                   <Mic className="mr-2 h-4 w-4" />
                   Go to Studio
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Input Your Text</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Have existing text or transcripts? Input them directly to generate tweet threads.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" asChild className="w-full">
-                <Link to="/transcript-editor">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Input Text
                 </Link>
               </Button>
             </CardFooter>
