@@ -1,7 +1,8 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowRight } from "lucide-react";
+import { Send, ArrowLeft, Zap } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
@@ -168,8 +169,31 @@ const Studio = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4">
-      <div className="text-center max-w-2xl mx-auto mb-10">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] py-8 px-4 relative">
+      {/* Navigation header */}
+      <div className="w-full max-w-3xl flex justify-between items-center mb-6 absolute top-0 left-1/2 -translate-x-1/2 py-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/dashboard")}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Button>
+        
+        <Button
+          onClick={useTranscript}
+          disabled={!transcript.trim() || isSaving}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 font-medium"
+          size="sm"
+        >
+          {isSaving ? "Processing..." : "Generate Content"}
+          <Zap className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="text-center max-w-2xl mx-auto mb-10 mt-10">
         <h1 className="text-4xl font-bold mb-2">Studio</h1>
         <p className="text-muted-foreground">
           Record your thoughts and transform them into authentic content
@@ -188,26 +212,13 @@ const Studio = () => {
           />
         </div>
         
-        {/* Subtle Transcript Display with improved styling */}
+        {/* Simplified Transcript Display */}
         <div className="w-full transition-all">
-          <Card className="rounded-xl overflow-hidden border border-muted/30 bg-card/30 backdrop-blur-sm shadow-sm hover:shadow-md transition-all">
+          <Card className="rounded-xl overflow-hidden border border-muted/30">
             <CardContent className="p-0">
-              <div className="px-6 py-3 border-b border-muted/20 bg-muted/10 flex justify-between items-center">
-                <h2 className="font-medium text-muted-foreground">Conversation</h2>
-                <Button 
-                  onClick={useTranscript}
-                  disabled={!transcript.trim() || isSaving}
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs hover:text-primary hover:bg-primary/5 transition-colors"
-                >
-                  {isSaving ? "Saving..." : "Create Content"}
-                  <ArrowRight className="ml-1 h-3 w-3" />
-                </Button>
-              </div>
               <ScrollArea className="max-h-[300px]">
-                <div className="p-4 bg-background/30">
-                  <div className="rounded-lg p-4 min-h-[150px] whitespace-pre-wrap font-light text-muted-foreground">
+                <div className="p-4">
+                  <div className="rounded-lg p-4 min-h-[150px] whitespace-pre-wrap font-light">
                     {transcript ? (
                       <div className="text-sm leading-relaxed">{transcript}</div>
                     ) : (
@@ -233,7 +244,7 @@ const Studio = () => {
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 resize-none bg-background/50 backdrop-blur-sm border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30"
+                  className="flex-1 resize-none bg-background/50 border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30"
                 />
                 <Button 
                   onClick={sendTextMessage} 
