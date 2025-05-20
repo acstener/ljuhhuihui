@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,7 +178,7 @@ const Dashboard = () => {
                   )}
                 </p>
               </CardContent>
-              <CardFooter className="flex justify-between">
+              <CardFooter className="flex justify-end">
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -187,27 +186,6 @@ const Dashboard = () => {
                 >
                   View Content
                   <MessageSquare className="ml-2 h-3 w-3" />
-                </Button>
-                
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  asChild 
-                  className="text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/generate/new`, { 
-                      state: { 
-                        sessionId: session.id, 
-                        transcript: session.transcript 
-                      }
-                    });
-                  }}
-                >
-                  <span>
-                    Generate
-                    <Sparkles className="ml-2 h-3 w-3" />
-                  </span>
                 </Button>
               </CardFooter>
             </Card>
