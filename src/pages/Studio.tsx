@@ -207,106 +207,118 @@ const Studio = () => {
   };
 
   return (
-    <div className="flex flex-col items-center min-h-[80vh] px-4 pt-16 pb-8 relative">
-      {/* Responsive navigation header */}
-      <div className="w-full max-w-3xl flex flex-wrap justify-between items-center sticky top-0 left-0 right-0 py-4 px-4 bg-background/80 backdrop-blur-sm z-10 gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-1 text-xs sm:text-sm sm:gap-2"
-        >
-          <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
-          <span className="whitespace-nowrap">Back to Dashboard</span>
-        </Button>
+    <div className="min-h-screen flex flex-col px-4 sm:px-6 py-6 sm:py-8">
+      {/* Fixed width content container with proper spacing */}
+      <div className="w-full max-w-3xl mx-auto flex flex-col flex-1">
+        {/* Header - light touch with proper spacing */}
+        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 px-3 sm:py-3 sm:px-4 rounded-lg mb-6 border-b">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-1 text-xs sm:text-sm sm:gap-2"
+            >
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="whitespace-nowrap">Back to Dashboard</span>
+            </Button>
+            
+            <Button
+              onClick={useTranscript}
+              disabled={!transcript.trim() || isSaving}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
+              size="sm"
+            >
+              {isSaving ? "Processing..." : "Generate Content"}
+              <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+            </Button>
+          </div>
+        </header>
         
-        <Button
-          onClick={useTranscript}
-          disabled={!transcript.trim() || isSaving}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm ml-auto"
-          size="sm"
-        >
-          {isSaving ? "Processing..." : "Generate Content"}
-          <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
-        </Button>
-      </div>
-      
-      <div className="text-center max-w-2xl mx-auto mb-8 mt-8">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-2 sm:mb-3">Studio</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Record your thoughts and transform them into authentic content
-        </p>
-      </div>
-      
-      <div className="flex flex-col items-center w-full max-w-3xl mx-auto">
-        {/* Voice Orb Component */}
-        <div className="mb-10 sm:mb-16 relative">
-          <VoiceOrb 
-            isListening={isListening}
-            isInitializing={isInitializing}
-            connectionAttempts={connectionAttempts}
-            onStartConversation={startConversation}
-            onStopConversation={stopConversation}
-          />
+        {/* Title section with balanced spacing */}
+        <div className="text-center mb-8 sm:mb-10">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3">Studio</h1>
+          <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
+            Record your thoughts and transform them into authentic content
+          </p>
         </div>
         
-        {/* Chat-style Conversation Display */}
-        <div className="w-full max-w-xl mx-auto">
-          <ScrollArea className="h-72 pr-2 mb-4">
-            <div className="space-y-3">
-              {conversationMessages.length > 0 ? (
-                conversationMessages.map((message, index) => (
-                  <div 
-                    key={index}
-                    className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div 
-                      className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${
-                        message.type === "user" 
-                          ? "bg-primary/15 text-foreground/90" 
-                          : "bg-muted/30 text-foreground/90 flex items-start"
-                      }`}
-                    >
-                      {message.type === "studio" && (
-                        <MessageCircle className="h-3 w-3 mr-2 mt-1 text-primary/70" />
-                      )}
-                      <span>{message.content}</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="flex justify-center items-center h-52">
-                  <p className="text-sm font-normal text-muted-foreground/70">
-                    {isListening 
-                      ? "Listening... speak clearly" 
-                      : "Start a conversation to see the transcript here"}
-                  </p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+        {/* Main content area with proper vertical rhythm */}
+        <div className="flex flex-col items-center w-full space-y-8 sm:space-y-10">
+          {/* Voice Orb with proper spacing */}
+          <div className="relative">
+            <VoiceOrb 
+              isListening={isListening}
+              isInitializing={isInitializing}
+              connectionAttempts={connectionAttempts}
+              onStartConversation={startConversation}
+              onStopConversation={stopConversation}
+            />
+          </div>
           
-          {/* Text Input Field */}
-          {isConnected && (
-            <div className="w-full">
-              <div className="flex gap-2 items-end">
-                <Textarea
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 resize-none bg-background border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm"
-                />
-                <Button 
-                  onClick={sendTextMessage} 
-                  disabled={!userInput.trim()}
-                  variant="ghost"
-                  className="h-10 w-10 p-0 rounded-full bg-primary/5 hover:bg-primary/10 transition-colors"
-                >
-                  <Send className="h-4 w-4 text-primary" />
-                </Button>
+          {/* Chat conversation container with better proportions */}
+          <div className="w-full max-w-xl mx-auto space-y-4">
+            {/* Chat messages area with increased height */}
+            <Card className="border border-muted/30">
+              <CardContent className="p-0">
+                <ScrollArea className="h-80 sm:h-96 p-4">
+                  <div className="space-y-4">
+                    {conversationMessages.length > 0 ? (
+                      conversationMessages.map((message, index) => (
+                        <div 
+                          key={index}
+                          className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+                        >
+                          <div 
+                            className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${
+                              message.type === "user" 
+                                ? "bg-primary/15 text-foreground/90" 
+                                : "bg-muted/30 text-foreground/90 flex items-start"
+                            }`}
+                          >
+                            {message.type === "studio" && (
+                              <MessageCircle className="h-3 w-3 mr-2 mt-1 text-primary/70" />
+                            )}
+                            <span>{message.content}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex justify-center items-center h-full">
+                        <p className="text-sm font-normal text-muted-foreground/70">
+                          {isListening 
+                            ? "Listening... speak clearly" 
+                            : "Start a conversation to see the transcript here"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+            
+            {/* Input area with proper spacing */}
+            {isConnected && (
+              <div className="w-full mt-4">
+                <div className="flex gap-2 items-end">
+                  <Textarea
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    placeholder="Type a message..."
+                    className="flex-1 resize-none bg-background border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm"
+                  />
+                  <Button 
+                    onClick={sendTextMessage} 
+                    disabled={!userInput.trim()}
+                    variant="ghost"
+                    className="h-10 w-10 p-0 rounded-full bg-primary/5 hover:bg-primary/10 transition-colors"
+                  >
+                    <Send className="h-4 w-4 text-primary" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
