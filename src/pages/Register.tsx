@@ -10,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const { toast } = useToast();
@@ -27,15 +26,6 @@ const Register = () => {
         variant: "destructive",
         title: "Error",
         description: "Please complete all fields",
-      });
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Passwords don't match",
-        description: "Please check your passwords and try again",
       });
       return;
     }
@@ -92,18 +82,6 @@ const Register = () => {
           placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          disabled={isLoading}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="confirm-password">Confirm Password</Label>
-        <Input
-          id="confirm-password"
-          type="password"
-          placeholder="••••••••"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
           disabled={isLoading}
         />
       </div>

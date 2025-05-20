@@ -16,7 +16,6 @@ interface AuthGateProps {
 export const AuthGate = ({ onClose }: AuthGateProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("signup");
   
@@ -32,15 +31,6 @@ export const AuthGate = ({ onClose }: AuthGateProps) => {
         variant: "destructive",
         title: "Required fields",
         description: "Please complete all fields",
-      });
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      toast({
-        variant: "destructive",
-        title: "Passwords don't match",
-        description: "Please check your passwords and try again",
       });
       return;
     }
@@ -140,18 +130,6 @@ export const AuthGate = ({ onClose }: AuthGateProps) => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password" 
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={isLoading}
                   />
                 </div>

@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/App";
 import LandingVoiceStudio from "@/components/LandingVoiceStudio";
 import AuthGate from "@/components/AuthGate";
-import { ArrowRight, Zap, MessageCircle, Copy } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowRight, Zap, MessageCircle, Copy, Loader } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -147,12 +147,12 @@ const Index = () => {
             >
               {isProcessing ? (
                 <>
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent mr-2 align-[-0.125em]"></span>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
                   Processing Content...
                 </>
               ) : (
                 <>
-                  Generate Tweets
+                  Generate Content
                   <Zap className="ml-2 h-4 w-4" />
                 </>
               )}
