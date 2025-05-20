@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,10 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState;
-  const returnUrl = state?.returnUrl || "/dashboard";
+  
+  // Check if we have a pending transcript and use generate/new as the return URL
+  const hasPendingTranscript = localStorage.getItem("pendingTranscript") !== null;
+  const returnUrl = hasPendingTranscript ? "/generate/new" : (state?.returnUrl || "/dashboard");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +45,15 @@ const Login = () => {
         title: "Success",
         description: "You've been logged in",
       });
+      
+      // If there's a pending transcript, show a more descriptive toast
+      if (hasPendingTranscript) {
+        toast({
+          title: "Content Ready",
+          description: "Your content is being generated now!",
+        });
+      }
+      
       navigate(returnUrl);
     } catch (error: any) {
       toast({
@@ -95,6 +107,13 @@ const Login = () => {
           Sign up
         </Link>
       </div>
+      
+      {hasPendingTranscript && (
+        <div className="bg-primary/10 p-3 rounded-md text-sm">
+          <p className="font-medium">Content Ready!</p>
+          <p className="text-muted-foreground">Sign in to see your generated content.</p>
+        </div>
+      )}
     </form>
   );
 };

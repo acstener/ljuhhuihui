@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,9 @@ const Register = () => {
   const { register } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  // Check if we have a pending transcript
+  const hasPendingTranscript = localStorage.getItem("pendingTranscript") !== null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +48,17 @@ const Register = () => {
         title: "Account created",
         description: "Welcome to ContentFactory! Please check your email for confirmation.",
       });
-      navigate("/dashboard");
+      
+      // If there's a pending transcript, redirect to generate/new and show a toast
+      if (hasPendingTranscript) {
+        toast({
+          title: "Content Ready",
+          description: "Your content is being generated now!",
+        });
+        navigate("/generate/new");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -105,6 +118,13 @@ const Register = () => {
           Sign in
         </Link>
       </div>
+      
+      {hasPendingTranscript && (
+        <div className="bg-primary/10 p-3 rounded-md text-sm">
+          <p className="font-medium">Content Ready!</p>
+          <p className="text-muted-foreground">Sign up to see your generated content.</p>
+        </div>
+      )}
     </form>
   );
 };

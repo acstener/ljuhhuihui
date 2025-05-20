@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -279,6 +280,7 @@ export const useThreadGenerator = () => {
     handleDeleteTweet,
     handleCopyTweet,
     handleDownloadAll,
-    setSessionId
+    setSessionId,
+    setTranscript // Export this function for use in ThreadGenerator
   };
 };

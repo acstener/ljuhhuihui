@@ -25,6 +25,7 @@ import Studio from "@/pages/Studio";
 import ThreadGenerator from "@/pages/ThreadGenerator";
 import SessionView from "@/pages/SessionView";
 import TrainTone from "./pages/TrainTone";
+import Index from "./pages/Index";
 import { supabase } from "./integrations/supabase/client";
 
 interface AuthContextType {
@@ -156,6 +157,10 @@ const App = () => {
     <Router>
       <AuthProvider>
         <Routes>
+          {/* Home page - accessible to everyone */}
+          <Route path="/" element={<Index />} />
+          
+          {/* Auth pages */}
           <Route path="/auth" element={<AuthLayout />}>
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
@@ -169,7 +174,6 @@ const App = () => {
           {/* Protected routes under ProtectedRoute wrapper */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<DashboardLayout />}>
-              <Route index element={<Navigate to="/dashboard" />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="studio" element={<Studio />} />
               <Route path="generate/new" element={<ThreadGenerator />} />
@@ -178,8 +182,8 @@ const App = () => {
             </Route>
           </Route>
 
-          {/* Catch-all redirect to login */}
-          <Route path="*" element={<Navigate to="/auth/login" replace />} />
+          {/* Catch-all redirect to home */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </Router>
