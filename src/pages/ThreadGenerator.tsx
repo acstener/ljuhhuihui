@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
@@ -43,6 +44,8 @@ const ThreadGenerator = () => {
   const generationTriggered = useRef(false);
   const transcriptProcessed = useRef(false);
   const sessionVerified = useRef(false);
+  // Add a ref for confirmedSessionId to fix the TypeScript errors
+  const confirmedSessionId = useRef<string | null>(null);
   
   // Debug output for important state
   useEffect(() => {
@@ -59,6 +62,7 @@ const ThreadGenerator = () => {
       setSessionId(location.state.sessionId);
       localStorage.setItem("currentSessionId", location.state.sessionId);
       sessionVerified.current = true;
+      confirmedSessionId.current = location.state.sessionId;
     }
     
     // Handle transcript from location state - only once
@@ -92,10 +96,12 @@ const ThreadGenerator = () => {
         if (data && data.user_id === user.id) {
           console.log("Session verified as belonging to current user");
           sessionVerified.current = true;
+          confirmedSessionId.current = sessionId;
         } else {
           console.warn("Session does not belong to current user, will create new session");
           setSessionId(null);
           localStorage.removeItem("currentSessionId");
+          confirmedSessionId.current = null;
         }
       } catch (err) {
         console.error("Failed to verify session:", err);
@@ -200,7 +206,7 @@ const ThreadGenerator = () => {
           </p>
         </div>
         
-        {sessionId && (
+        {(sessionId || confirmedSessionId.current) && (
           <Button variant="outline" onClick={handleViewSession}>
             View All Session Content
           </Button>
