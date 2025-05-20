@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,37 +29,43 @@ const Dashboard = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCounter, setRefreshCounter] = useState(0); // Added to force refresh
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   
-  // Check for content-generated event
+  // Debug output for user state and location
   useEffect(() => {
-    const handleContentGenerated = (event: CustomEvent) => {
-      console.log("Content generated event detected, refreshing sessions");
-      const { sessionId, userId } = event.detail;
-      console.log("Event details:", { sessionId, userId, currentUser: user?.id });
-      
-      // Only refresh if the event is for the current user
-      if (userId === user?.id) {
-        fetchSessions();
-      }
-    };
+    if (user) {
+      console.log("Dashboard - User authenticated:", user.id);
+    } else {
+      console.log("Dashboard - No authenticated user");
+    }
     
-    // Type assertion to work with CustomEvent
-    window.addEventListener('content-generated', handleContentGenerated as EventListener);
-    
-    return () => {
-      window.removeEventListener('content-generated', handleContentGenerated as EventListener);
-    };
-  }, [user]);
+    if (location.state) {
+      console.log("Dashboard - Location state:", location.state);
+    }
+  }, [user, location.state]);
+  
+  // Force refresh when coming from content generation
+  useEffect(() => {
+    if (location.state?.fromContentGeneration) {
+      setRefreshCounter(prev => prev + 1);
+    }
+  }, [location.state]);
   
   // Fetch sessions from Supabase
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async (forceRefetch = false) => {
     if (!user?.id) {
       console.log("Cannot fetch sessions: No authenticated user");
       setIsLoading(false);
+      setSessions([]);
+      return;
+    }
+    
+    if (!forceRefetch && !isLoading && sessions.length > 0) {
+      console.log("Skipping session fetch, already have sessions");
       return;
     }
     
@@ -83,6 +89,8 @@ const Dashboard = () => {
       
       if (sessionData && sessionData.length > 0) {
         console.log("Session data sample:", sessionData[0]);
+      } else {
+        console.log("No sessions found for user");
       }
       
       setSessions(sessionData || []);
@@ -106,7 +114,41 @@ const Dashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, isLoading, sessions.length, location.state, toast]);
+
+  // Check for content-generated event
+  useEffect(() => {
+    const handleContentGenerated = (event: CustomEvent<{sessionId: string, userId: string}>) => {
+      console.log("Content generated event detected, refreshing sessions");
+      const { sessionId, userId } = event.detail;
+      console.log("Event details:", { sessionId, userId, currentUser: user?.id });
+      
+      // Only refresh if the event is for the current user
+      if (userId === user?.id) {
+        fetchSessions(true);
+      }
+    };
+    
+    // Type assertion to work with CustomEvent
+    window.addEventListener('content-generated', handleContentGenerated as EventListener);
+    
+    return () => {
+      window.removeEventListener('content-generated', handleContentGenerated as EventListener);
+    };
+  }, [user, fetchSessions]);
+  
+  // Listen to storage events for cross-tab communication
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'lastContentGenerated' || e.key === 'currentSessionId') {
+        console.log('Storage changed, refreshing sessions');
+        fetchSessions(true);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [fetchSessions]);
 
   // Check for localStorage indicators that content was generated
   useEffect(() => {
@@ -122,7 +164,7 @@ const Dashboard = () => {
         // If content was generated in the last 5 minutes, refresh
         if (timestamp > fiveMinutesAgo) {
           console.log("Recent content generation detected, refreshing sessions");
-          fetchSessions();
+          fetchSessions(true);
           
           // Clear the lastContentGenerated flag after refreshing
           localStorage.removeItem("lastContentGenerated");
@@ -131,39 +173,27 @@ const Dashboard = () => {
     };
     
     checkForContentGeneration();
-  }, []);
+  }, [fetchSessions]);
 
-  // Check for returning from content generation
+  // Force fetch on refresh counter change
   useEffect(() => {
-    const checkForReturnFromContent = () => {
-      // Check if we're coming from a content generation page
-      if (location.state?.fromContentGeneration) {
-        console.log("Returning from content generation, refreshing sessions");
-        fetchSessions();
-      }
-      
-      // Check if there's a recently used session ID in localStorage
-      const currentSessionId = localStorage.getItem("currentSessionId");
-      if (currentSessionId) {
-        console.log("Found session ID in localStorage, refreshing sessions");
-        fetchSessions();
-      }
-    };
-    
-    checkForReturnFromContent();
-  }, [location]);
+    if (refreshCounter > 0) {
+      console.log(`Refresh triggered (${refreshCounter}), fetching sessions`);
+      fetchSessions(true);
+    }
+  }, [refreshCounter, fetchSessions]);
 
   // Fetch sessions when component mounts or user changes
   useEffect(() => {
     if (user?.id) {
       fetchSessions();
     }
-  }, [user?.id]);
+  }, [user?.id, fetchSessions]);
   
   // Handle manual refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchSessions();
+    await fetchSessions(true);
     setIsRefreshing(false);
   };
 

@@ -6,17 +6,70 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const { register } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
   // Check if we have a pending transcript
   const hasPendingTranscript = localStorage.getItem("pendingTranscript") !== null;
+
+  const createSessionFromPending = async (userId: string) => {
+    setIsCreatingSession(true);
+    try {
+      const pendingTranscript = localStorage.getItem("pendingTranscript");
+      
+      if (!pendingTranscript) {
+        console.log("No pending transcript to create session from");
+        return null;
+      }
+      
+      console.log("Creating session from pending transcript for new user:", userId);
+      
+      // Create a new session with the pending transcript
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert({
+          user_id: userId,
+          title: `Session ${new Date().toLocaleString()}`,
+          transcript: pendingTranscript
+        })
+        .select();
+        
+      if (error) {
+        console.error("Error creating session from pending transcript:", error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        const sessionId = data[0].id;
+        console.log("Created new session with ID:", sessionId);
+        localStorage.setItem("currentSessionId", sessionId);
+        
+        // Clear pending transcript now that we've created a session
+        localStorage.removeItem("pendingTranscript");
+        
+        return sessionId;
+      }
+    } catch (error) {
+      console.error("Failed to create session from pending transcript:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save your content. Please try again.",
+      });
+    } finally {
+      setIsCreatingSession(false);
+    }
+    
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,19 +86,34 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      await register(email, password);
+      const { data: authData, error: authError } = await register(email, password);
+      
+      if (authError) throw authError;
+      
       toast({
         title: "Account created",
         description: "Welcome to ContentFactory! Please check your email for confirmation.",
       });
       
-      // If there's a pending transcript, redirect to generate/new and show a toast
-      if (hasPendingTranscript) {
-        toast({
-          title: "Content Ready",
-          description: "Your content is being generated now!",
-        });
-        navigate("/generate/new");
+      // If the user was created successfully and we have a pending transcript,
+      // create a session with it
+      if (authData?.user && hasPendingTranscript) {
+        const sessionId = await createSessionFromPending(authData.user.id);
+        
+        if (sessionId) {
+          toast({
+            title: "Content Ready",
+            description: "Your content is being generated now!",
+          });
+          navigate("/generate/new", { 
+            state: { 
+              fromSignup: true,
+              sessionId: sessionId 
+            }
+          });
+        } else {
+          navigate("/dashboard");
+        }
       } else {
         navigate("/dashboard");
       }
@@ -86,8 +154,8 @@ const Register = () => {
         />
       </div>
       
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? "Creating account..." : "Create account"}
+      <Button type="submit" className="w-full" disabled={isLoading || isCreatingSession}>
+        {isLoading || isCreatingSession ? "Creating account..." : "Create account"}
       </Button>
       
       <div className="text-center text-sm">

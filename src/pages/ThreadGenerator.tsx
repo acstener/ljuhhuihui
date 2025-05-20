@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
@@ -11,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 
 const ThreadGenerator = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const {
     transcript,
     sessionId,
@@ -40,12 +41,24 @@ const ThreadGenerator = () => {
   // Flag to track if content generation has been triggered
   const generationTriggered = useRef(false);
   
+  // Debug output for important state
+  useEffect(() => {
+    console.log("ThreadGenerator render - User:", user?.id);
+    console.log("ThreadGenerator render - Session ID:", sessionId);
+    console.log("ThreadGenerator render - Transcript length:", transcript?.length || 0);
+  }, [user?.id, sessionId, transcript]);
+  
   // Get session ID from location state if available
   useEffect(() => {
     if (location.state?.sessionId) {
       console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
       localStorage.setItem("currentSessionId", location.state.sessionId);
+    }
+    
+    // Check for from signup flag
+    if (location.state?.fromSignup) {
+      console.log("Coming from signup - with state:", location.state);
     }
     
     // Check for transcript in location state
@@ -61,14 +74,30 @@ const ThreadGenerator = () => {
     if (pendingTranscript && !transcript) {
       console.log("Loading pending transcript from localStorage");
       setTranscript(pendingTranscript);
-      // Clear from localStorage to prevent reloading on refresh
-      localStorage.removeItem("pendingTranscript");
-      toast({
-        title: "Transcript Loaded",
-        description: "Your conversation has been loaded and is being processed.",
-      });
+      
+      // If we have a user, we should create a session for this transcript
+      if (user && !sessionId) {
+        console.log("Creating new session for pending transcript and user:", user.id);
+        createNewSession(pendingTranscript).then((newSessionId) => {
+          if (newSessionId) {
+            console.log("Created new session from pending transcript:", newSessionId);
+            // Clear from localStorage to prevent reloading on refresh once we've created a session
+            localStorage.removeItem("pendingTranscript");
+            toast({
+              title: "Transcript Saved",
+              description: "Your conversation has been saved to your account.",
+            });
+          }
+        });
+      } else {
+        // If we don't have a user, keep in localStorage for now
+        toast({
+          title: "Transcript Loaded",
+          description: "Your conversation has been loaded and is being processed.",
+        });
+      }
     }
-  }, [transcript, setTranscript, toast]);
+  }, [transcript, setTranscript, toast, user, sessionId, createNewSession]);
   
   // Auto-generate tweets when component loads if transcript exists and API key is set
   useEffect(() => {
