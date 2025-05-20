@@ -1,12 +1,15 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
 import { OptionsPanel } from "@/components/thread/OptionsPanel";
 import { ContentPlaceholder } from "@/components/thread/ContentPlaceholder";
 import { useThreadGenerator } from "@/hooks/use-thread-generator";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft, Lock } from "lucide-react";
 
 const ThreadGenerator = () => {
   const location = useLocation();
@@ -16,6 +19,8 @@ const ThreadGenerator = () => {
     tweets,
     isGenerating,
     error,
+    apiKeySet,
+    setApiKey,
     generateTweets,
     handleUpdateTweet,
     handleDeleteTweet,
@@ -25,6 +30,8 @@ const ThreadGenerator = () => {
   } = useThreadGenerator();
   
   const navigate = useNavigate();
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(!apiKeySet);
   
   // Get session ID from location state if available
   useEffect(() => {
@@ -34,12 +41,24 @@ const ThreadGenerator = () => {
     }
   }, [location.state, setSessionId]);
   
-  // Auto-generate tweets when component loads if transcript exists
+  // Auto-generate tweets when component loads if transcript exists and API key is set
   useEffect(() => {
-    if (transcript && tweets.length === 0 && !isGenerating) {
+    if (transcript && tweets.length === 0 && !isGenerating && apiKeySet) {
       generateTweets();
     }
-  }, [transcript, tweets.length, isGenerating, generateTweets]);
+  }, [transcript, tweets.length, isGenerating, generateTweets, apiKeySet]);
+  
+  const handleSaveApiKey = () => {
+    if (apiKeyInput.trim()) {
+      setApiKey(apiKeyInput.trim());
+      setApiKeyDialogOpen(false);
+      
+      // Generate tweets if transcript exists
+      if (transcript && tweets.length === 0) {
+        generateTweets();
+      }
+    }
+  };
   
   const handleBackToStudio = () => {
     navigate("/studio");
@@ -83,6 +102,8 @@ const ThreadGenerator = () => {
           onRegenerate={() => generateTweets()}
           onDownloadAll={handleDownloadAll}
           onBackToTranscript={handleBackToStudio}
+          onOpenApiKeyDialog={() => setApiKeyDialogOpen(true)}
+          apiKeySet={apiKeySet}
         />
         
         {/* Generated content */}
@@ -110,6 +131,45 @@ const ThreadGenerator = () => {
           )}
         </div>
       </div>
+      
+      {/* API Key Dialog */}
+      <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter OpenAI API Key</DialogTitle>
+            <DialogDescription>
+              We need your OpenAI API key to generate content. This is stored locally on your device only.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">OpenAI API Key</Label>
+              <div className="flex">
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="sk-..."
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                <Lock className="inline h-3 w-3 mr-1" />
+                Your API key is stored locally only and never sent to our servers
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApiKeyDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveApiKey} disabled={!apiKeyInput.trim()}>
+              Save API Key
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

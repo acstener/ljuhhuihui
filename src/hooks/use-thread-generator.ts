@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
+import { generateTweetsFromTranscript, setOpenAIKey, getOpenAIKey, GeneratedTweet } from "@/utils/tweetGenerator";
 
 interface Tweet {
   tweet: string;
@@ -17,6 +17,7 @@ export const useThreadGenerator = () => {
   const [exampleTweets, setExampleTweets] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [apiKeySet, setApiKeySet] = useState<boolean>(!!getOpenAIKey());
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -59,6 +60,11 @@ export const useThreadGenerator = () => {
     }
   };
 
+  const setApiKey = (key: string) => {
+    setOpenAIKey(key);
+    setApiKeySet(true);
+  };
+
   const generateTweets = async (text = transcript) => {
     if (!text.trim()) {
       toast({
@@ -69,81 +75,79 @@ export const useThreadGenerator = () => {
       return;
     }
     
+    if (!getOpenAIKey()) {
+      toast({
+        title: "API Key Required",
+        description: "Please set your OpenAI API key before generating content.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setError(null);
     setIsGenerating(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('generate-threads', {
-        body: { 
-          transcript: text,
-          count: 5,
-          exampleTweets: exampleTweets
+      // Use the utility function directly instead of the edge function
+      const generatedTweets = await generateTweetsFromTranscript(text, 5, exampleTweets);
+      
+      setTweets(generatedTweets);
+      
+      // If we have a user and session ID, save tweets to Supabase
+      if (user && sessionId) {
+        try {
+          const tweetsToSave = generatedTweets.map((tweet: GeneratedTweet) => ({
+            user_id: user.id,
+            session_id: sessionId,
+            content: tweet.tweet,
+            topic: tweet.topic || null
+          }));
+          
+          const { error: insertError } = await supabase
+            .from('generated_content')
+            .insert(tweetsToSave);
+            
+          if (insertError) throw insertError;
+          
+          console.log("Saved generated content to Supabase");
+        } catch (err) {
+          console.error("Failed to save generated content:", err);
         }
-      });
-      
-      if (error) throw new Error(error.message);
-      
-      console.log("Response from generate-threads:", data);
-      
-      if (data && Array.isArray(data.tweets)) {
-        setTweets(data.tweets);
-        
-        // If we have a user and session ID, save tweets to Supabase
-        if (user && (sessionId || data.sessionId)) {
-          const currentSessionId = sessionId || data.sessionId;
+      } else if (user && !sessionId && text) {
+        // If we don't have a session ID but have a transcript, create a new session
+        try {
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('sessions')
+            .insert({
+              user_id: user.id,
+              title: `Session ${new Date().toLocaleString()}`,
+              transcript: text
+            })
+            .select();
           
-          // If we don't have a session ID but have a transcript, create a new session
-          let activeSessionId = currentSessionId;
-          
-          if (!activeSessionId && transcript) {
-            try {
-              const { data: sessionData, error: sessionError } = await supabase
-                .from('sessions')
-                .insert({
-                  user_id: user.id,
-                  title: `Session ${new Date().toLocaleString()}`,
-                  transcript: transcript
-                })
-                .select();
+          if (sessionError) throw sessionError;
+          if (sessionData && sessionData.length > 0) {
+            const activeSessionId = sessionData[0].id;
+            setSessionId(activeSessionId);
+            localStorage.setItem("currentSessionId", activeSessionId);
+            
+            // Now save the tweets
+            const tweetsToSave = generatedTweets.map((tweet: GeneratedTweet) => ({
+              user_id: user.id,
+              session_id: activeSessionId,
+              content: tweet.tweet,
+              topic: tweet.topic || null
+            }));
+            
+            const { error: insertError } = await supabase
+              .from('generated_content')
+              .insert(tweetsToSave);
               
-              if (sessionError) throw sessionError;
-              if (sessionData && sessionData.length > 0) {
-                activeSessionId = sessionData[0].id;
-                setSessionId(activeSessionId);
-                localStorage.setItem("currentSessionId", activeSessionId);
-              }
-            } catch (err) {
-              console.error("Failed to create session:", err);
-            }
+            if (insertError) throw insertError;
           }
-          
-          // Save generated tweets to Supabase
-          if (activeSessionId) {
-            try {
-              const tweetsToSave = data.tweets.map((tweet: Tweet) => ({
-                user_id: user.id,
-                session_id: activeSessionId,
-                content: tweet.tweet,
-                topic: tweet.topic || null
-              }));
-              
-              const { error: insertError } = await supabase
-                .from('generated_content')
-                .insert(tweetsToSave);
-                
-              if (insertError) throw insertError;
-              
-              console.log("Saved generated content to Supabase");
-            } catch (err) {
-              console.error("Failed to save generated content:", err);
-            }
-          }
+        } catch (err) {
+          console.error("Failed to create session:", err);
         }
-      } else if (data && data.error) {
-        // Handle error response from the function
-        throw new Error(`API Error: ${data.error}`);
-      } else {
-        throw new Error("Invalid response format from content generation. Expected tweets array.");
       }
     } catch (err: any) {
       console.error("Failed to generate content:", err);
@@ -268,6 +272,8 @@ export const useThreadGenerator = () => {
     isGenerating,
     exampleTweets,
     error,
+    apiKeySet,
+    setApiKey,
     generateTweets,
     handleUpdateTweet,
     handleDeleteTweet,

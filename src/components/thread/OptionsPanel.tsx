@@ -2,22 +2,26 @@
 import React from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Edit, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Edit, Loader2, Key } from "lucide-react";
 
 interface OptionsPanelProps {
   isGenerating: boolean;
   hasContent: boolean;
+  apiKeySet?: boolean;
   onRegenerate: () => void;
   onDownloadAll: () => void;
   onBackToTranscript: () => void;
+  onOpenApiKeyDialog?: () => void;
 }
 
 export const OptionsPanel = ({
   isGenerating,
   hasContent,
+  apiKeySet = true,
   onRegenerate,
   onDownloadAll,
-  onBackToTranscript
+  onBackToTranscript,
+  onOpenApiKeyDialog
 }: OptionsPanelProps) => {
   return (
     <div className="space-y-4 md:col-span-1">
@@ -32,8 +36,8 @@ export const OptionsPanel = ({
           
           <Button 
             onClick={onRegenerate} 
-            disabled={isGenerating}
-            className="w-full"
+            disabled={isGenerating || !apiKeySet}
+            className="w-full mb-3"
           >
             {isGenerating ? (
               <>
@@ -47,6 +51,17 @@ export const OptionsPanel = ({
               </>
             )}
           </Button>
+          
+          {onOpenApiKeyDialog && (
+            <Button
+              variant="outline"
+              onClick={onOpenApiKeyDialog}
+              className="w-full"
+            >
+              <Key className="h-4 w-4 mr-2" />
+              {apiKeySet ? "Change API Key" : "Set OpenAI API Key"}
+            </Button>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between border-t pt-4">
           <Button variant="outline" onClick={onBackToTranscript}>
