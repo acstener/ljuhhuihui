@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -10,6 +11,9 @@ import {
   Route,
   Routes,
   Navigate,
+  useNavigate,
+  useLocation,
+  Outlet,
 } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -29,6 +33,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,18 +45,32 @@ interface AuthProviderProps {
 const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-    });
-
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      
+      try {
+        // Get the current session
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    initializeAuth();
+    
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setIsLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -89,6 +108,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
+    isLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -100,6 +120,35 @@ const useAuth = () => {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+};
+
+// Protected route wrapper component
+const ProtectedRoute = () => {
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      // Redirect to login page with return URL
+      navigate("/auth/login", { 
+        replace: true,
+        state: { returnUrl: location.pathname }
+      });
+    }
+  }, [user, isLoading, navigate, location]);
+
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  // If authenticated, render the child routes
+  return user ? <Outlet /> : null;
 };
 
 const App = () => {
@@ -117,14 +166,20 @@ const App = () => {
             element={<Navigate to="/auth/login" replace />}
           />
           
-          <Route path="/" element={<DashboardLayout />}>
-            <Route index element={<Navigate to="/dashboard" />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="studio" element={<Studio />} />
-            <Route path="generate/new" element={<ThreadGenerator />} />
-            <Route path="train-tone" element={<TrainTone />} />
-            <Route path="session/:id" element={<SessionView />} />
+          {/* Protected routes under ProtectedRoute wrapper */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<DashboardLayout />}>
+              <Route index element={<Navigate to="/dashboard" />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="studio" element={<Studio />} />
+              <Route path="generate/new" element={<ThreadGenerator />} />
+              <Route path="train-tone" element={<TrainTone />} />
+              <Route path="session/:id" element={<SessionView />} />
+            </Route>
           </Route>
+
+          {/* Catch-all redirect to login */}
+          <Route path="*" element={<Navigate to="/auth/login" replace />} />
         </Routes>
       </AuthProvider>
     </Router>

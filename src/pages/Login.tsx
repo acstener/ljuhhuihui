@@ -1,11 +1,15 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+
+interface LocationState {
+  returnUrl?: string;
+}
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -14,6 +18,9 @@ const Login = () => {
   const { login } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState;
+  const returnUrl = state?.returnUrl || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +42,7 @@ const Login = () => {
         title: "Success",
         description: "You've been logged in",
       });
-      navigate("/dashboard");
+      navigate(returnUrl);
     } catch (error: any) {
       toast({
         variant: "destructive",

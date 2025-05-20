@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ const DashboardLayout = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login");
+    navigate("/auth/login");
   };
 
   // Track previous path to prevent unnecessary re-renders
@@ -57,13 +58,6 @@ const DashboardLayout = () => {
     { icon: Home, label: "Dashboard", path: "/dashboard" },
     { icon: Mic, label: "Studio", path: "/studio" },
   ];
-
-  // Add this check to prevent rendering until we're sure about auth state
-  if (!user) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="animate-pulse">Loading...</div>
-    </div>;
-  }
 
   return (
     <div className="min-h-screen bg-background flex">
