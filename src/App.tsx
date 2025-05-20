@@ -55,6 +55,13 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         // Get the current session
         const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log("Auth initialized with user:", session.user.id);
+        } else {
+          console.log("Auth initialized without a user session");
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
       } catch (error) {
@@ -66,12 +73,29 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     initializeAuth();
     
+    // Set up the auth state change listener AFTER checking for the existing session
+    // This prevents race conditions where the listener triggers before initialization
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log("Auth state changed:", event, newSession?.user?.id);
+      
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
       setIsLoading(false);
+      
+      // When a new user signs in, save the user ID to localStorage
+      // This helps with cross-component consistency
+      if (event === 'SIGNED_IN' && newSession?.user) {
+        localStorage.setItem("currentUserId", newSession.user.id);
+        
+        // Set a flag for components to detect authentication state changes
+        localStorage.setItem("authStateChanged", new Date().toISOString());
+      } else if (event === 'SIGNED_OUT') {
+        // Clean up user-related data on sign out
+        localStorage.removeItem("currentUserId");
+        localStorage.removeItem("currentSessionId");
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -84,6 +108,12 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
     
     if (error) throw error;
+    
+    // Store user ID for cross-component reference
+    if (data?.user) {
+      localStorage.setItem("currentUserId", data.user.id);
+    }
+    
     return data;
   };
 
@@ -94,10 +124,20 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
     
     if (error) throw error;
+    
+    // Store user ID for cross-component reference if sign up is immediate
+    if (data?.user) {
+      localStorage.setItem("currentUserId", data.user.id);
+    }
+    
     return data;
   };
 
   const logout = async () => {
+    // Clean up user data first
+    localStorage.removeItem("currentUserId");
+    localStorage.removeItem("currentSessionId");
+    
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { ArrowLeft, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
+import { supabase } from "@/integrations/supabase/client";
 
 const ThreadGenerator = () => {
   const location = useLocation();
@@ -42,19 +43,23 @@ const ThreadGenerator = () => {
   const generationTriggered = useRef(false);
   // Flag to track if session creation has been attempted
   const sessionCreationAttempted = useRef(false);
+  // Keep track of the last confirmed session ID
+  const confirmedSessionId = useRef<string | null>(null);
   
   // Debug output for important state
   useEffect(() => {
     console.log("ThreadGenerator render - User:", user?.id);
     console.log("ThreadGenerator render - Session ID:", sessionId);
     console.log("ThreadGenerator render - Transcript length:", transcript?.length || 0);
-  }, [user?.id, sessionId, transcript]);
+    console.log("ThreadGenerator render - Location state:", location.state);
+  }, [user?.id, sessionId, transcript, location.state]);
   
   // Get session ID from location state if available
   useEffect(() => {
     if (location.state?.sessionId) {
       console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
+      confirmedSessionId.current = location.state.sessionId;
       localStorage.setItem("currentSessionId", location.state.sessionId);
     }
     
@@ -65,46 +70,99 @@ const ThreadGenerator = () => {
     }
   }, [location.state, setSessionId, setTranscript]);
   
+  // Verify session exists and belongs to current user
+  useEffect(() => {
+    const verifySession = async () => {
+      // Only verify if we have both a user and a session ID
+      if (!user?.id || !sessionId) return;
+      
+      // Skip if we've already verified this session
+      if (confirmedSessionId.current === sessionId) return;
+      
+      try {
+        console.log("Verifying session:", sessionId, "belongs to user:", user.id);
+        
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('id, user_id')
+          .eq('id', sessionId)
+          .single();
+        
+        if (error) {
+          console.error("Error verifying session:", error);
+          return;
+        }
+        
+        if (data && data.user_id === user.id) {
+          console.log("Session verified as belonging to current user");
+          confirmedSessionId.current = sessionId;
+        } else {
+          console.warn("Session does not belong to current user, will create new session");
+          // We'll let the session creation logic handle this case
+          setSessionId(null);
+          confirmedSessionId.current = null;
+          localStorage.removeItem("currentSessionId");
+        }
+      } catch (err) {
+        console.error("Failed to verify session:", err);
+      }
+    };
+    
+    verifySession();
+  }, [user?.id, sessionId, setSessionId]);
+  
   // Check for pending transcript in localStorage and handle session creation
   useEffect(() => {
     const pendingTranscript = localStorage.getItem("pendingTranscript");
+    const storedSessionId = localStorage.getItem("currentSessionId");
     
-    // Only process if:
-    // 1. We have a pending transcript
-    // 2. No transcript is already loaded
-    // 3. We have a user
-    // 4. We haven't attempted session creation yet 
-    if (pendingTranscript && !transcript && user && !sessionCreationAttempted.current) {
-      console.log("Loading pending transcript from localStorage and creating session");
-      setTranscript(pendingTranscript);
-      sessionCreationAttempted.current = true;
-      
-      // Create a session for this transcript
-      createNewSession(pendingTranscript).then((newSessionId) => {
-        if (newSessionId) {
-          console.log("Created new session from pending transcript:", newSessionId);
-          // Clear from localStorage to prevent reloading on refresh
-          localStorage.removeItem("pendingTranscript");
-          // Set timestamp to trigger dashboard refresh
-          localStorage.setItem("lastContentGenerated", new Date().toISOString());
-          
-          toast({
-            title: "Transcript Saved",
-            description: "Your conversation has been saved to your account.",
-          });
-        }
-      });
-    } 
-    // Handle case where we have a pending transcript but no user
-    else if (pendingTranscript && !transcript && !user) {
-      console.log("Loading pending transcript from localStorage (no user)");
-      setTranscript(pendingTranscript);
-      toast({
-        title: "Transcript Loaded",
-        description: "Your conversation has been loaded and is being processed.",
-      });
+    // First priority: Use location state transcript
+    if (location.state?.transcript && !transcript) {
+      setTranscript(location.state.transcript);
+      return;
     }
-  }, [transcript, setTranscript, toast, user, createNewSession]);
+    
+    // Second priority: Use stored session ID if it exists
+    if (storedSessionId && !sessionId && confirmedSessionId.current !== storedSessionId) {
+      console.log("Using stored session ID from localStorage:", storedSessionId);
+      setSessionId(storedSessionId);
+      confirmedSessionId.current = storedSessionId;
+      return;
+    }
+    
+    // Third priority: Use pending transcript from localStorage and create new session if needed
+    if (pendingTranscript && !transcript) {
+      console.log("Loading pending transcript from localStorage");
+      setTranscript(pendingTranscript);
+      
+      // If user is authenticated, create a session for this transcript
+      if (user && !sessionCreationAttempted.current && !sessionId) {
+        console.log("Creating new session from pending transcript");
+        sessionCreationAttempted.current = true;
+        
+        createNewSession(pendingTranscript).then((newSessionId) => {
+          if (newSessionId) {
+            console.log("Created new session from pending transcript:", newSessionId);
+            confirmedSessionId.current = newSessionId;
+            
+            // Clear from localStorage to prevent reloading on refresh
+            localStorage.removeItem("pendingTranscript");
+            localStorage.setItem("lastContentGenerated", new Date().toISOString());
+            
+            toast({
+              title: "Transcript Saved",
+              description: "Your conversation has been saved to your account.",
+            });
+          }
+        });
+      } else if (!user) {
+        toast({
+          title: "Transcript Loaded",
+          description: "Your conversation has been loaded and is being processed.",
+        });
+      }
+    }
+  }, [transcript, setTranscript, toast, user, createNewSession, sessionId, setSessionId, location.state]);
   
   // Auto-generate tweets when component loads if transcript exists and API key is set
   useEffect(() => {
@@ -148,14 +206,16 @@ const ThreadGenerator = () => {
     navigate("/dashboard", { 
       state: { 
         fromContentGeneration: true,
+        sessionId: sessionId || confirmedSessionId.current,
+        userId: user?.id,
         updatedAt: new Date().toISOString() // Add a timestamp to force a refresh
       }
     });
   };
 
   const handleViewSession = () => {
-    if (sessionId) {
-      navigate(`/session/${sessionId}`);
+    if (sessionId || confirmedSessionId.current) {
+      navigate(`/session/${sessionId || confirmedSessionId.current}`);
     }
   };
 
