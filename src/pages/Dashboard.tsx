@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -186,49 +187,6 @@ const Dashboard = () => {
             </Card>
           ))
         )}
-      </div>
-      
-      <div className="pt-8">
-        <h2 className="text-xl font-medium mb-4">Get Started</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Record a Session</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Start a new recording session with our AI assistant to generate content ideas or discuss topics.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" asChild className="w-full">
-                <Link to="/studio">
-                  <Mic className="mr-2 h-4 w-4" />
-                  Go to Studio
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Train Your Tone</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Provide examples of your authentic voice to improve content generation.
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" asChild className="w-full">
-                <Link to="/train-tone">
-                  <Sliders className="mr-2 h-4 w-4" />
-                  Train Tone
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
       </div>
     </div>
   );
