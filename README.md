@@ -40,6 +40,46 @@ VITE_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 VITE_ELEVENLABS_API_KEY=<your-elevenlabs-api-key>
 ```
 
+## Authentication & Session Flow
+
+Our application has a unique authentication flow designed to handle content generation that can start before a user is authenticated.
+
+### Key Concepts
+
+1. **Pending Transcripts**: Users can create content without being logged in. These are stored temporarily in localStorage as "pendingTranscript".
+
+2. **Session Creation**: A "session" represents a conversation and its generated content. Sessions are only stored in the database after authentication.
+
+3. **Global Session Tracking**: To prevent duplicate sessions, we use window-level variables (`_sessionCreationInProgress` and `_createdSessionId`) for cross-component coordination.
+
+### Authentication Flow Step-by-Step
+
+1. **Pre-Authentication Content Creation**:
+   - User interacts with the AI in Studio or uploads transcript
+   - Content is temporarily stored in localStorage as "pendingTranscript"
+   - User is prompted to register/login to save content
+
+2. **Registration/Login Process**:
+   - User creates an account or signs in using email/password
+   - Auth state is managed by Supabase and stored in context
+   - The auth process includes checks for pending content
+
+3. **Session Creation After Authentication**:
+   - After successful authentication, the system:
+     a. Checks if a session with the same transcript already exists to prevent duplicates
+     b. If no existing session, creates a new one in the database
+     c. Sets global tracking variables to prevent duplicate creation
+
+4. **Content Generation and Storage**:
+   - Generated content is linked to the session and user ID
+   - User is redirected to view their content
+
+### Session Management Logic
+
+- **Duplicate Prevention**: Multiple safeguards (local refs, global variables, database checks) prevent creating duplicate sessions
+- **Unique ID Tracking**: Session IDs are tracked across components using both localStorage and global variables
+- **Auth State Monitoring**: Components react to auth state changes for seamless user experience
+
 ## Documentation
 
 - [Project Documentation](./docs/README.md) - Complete project overview
