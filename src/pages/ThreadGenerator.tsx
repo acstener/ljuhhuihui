@@ -41,8 +41,8 @@ const ThreadGenerator = () => {
     }
   }, [transcript, tweets.length, isGenerating, generateTweets]);
   
-  const handleBackToTranscript = () => {
-    navigate("/transcript-editor", { state: { transcript, sessionId } });
+  const handleBackToStudio = () => {
+    navigate("/studio");
   };
 
   const handleBackToDashboard = () => {
@@ -82,7 +82,7 @@ const ThreadGenerator = () => {
           hasContent={tweets.length > 0}
           onRegenerate={() => generateTweets()}
           onDownloadAll={handleDownloadAll}
-          onBackToTranscript={handleBackToTranscript}
+          onBackToTranscript={handleBackToStudio}
         />
         
         {/* Generated content */}

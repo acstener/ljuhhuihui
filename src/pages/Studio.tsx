@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -180,10 +181,15 @@ const Studio = () => {
           .eq('id', currentSessionId);
       }
       
-      // Save transcript to localStorage as a backup
+      // Save transcript to localStorage for direct routing to generate page
       localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
       
-      // Navigate to generate page with session ID
+      // Also set a default style if none exists (simplified flow without transcript editor)
+      if (!localStorage.getItem("tweetGenerationStyle")) {
+        localStorage.setItem("tweetGenerationStyle", "my-voice");
+      }
+      
+      // Navigate directly to generate page with session ID
       navigate("/generate/new", { 
         state: { 
           transcript: transcriptRef.current,
@@ -211,7 +217,7 @@ const Studio = () => {
       {/* Content container with proper spacing */}
       <div className="max-w-4xl mx-auto px-4 py-4 sm:py-6">
         {/* Header with reduced spacing */}
-        <header className="flex flex-wrap items-center justify-between gap-2 mb-6">
+        <header className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <Button
             variant="ghost"
             size="sm"
@@ -234,17 +240,17 @@ const Studio = () => {
         </header>
         
         {/* Title section with reduced spacing */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Studio</h1>
+        <div className="text-center mb-4">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">Studio</h1>
           <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
             Record your thoughts and transform them into authentic content
           </p>
         </div>
         
         {/* Main content area with balanced spacing */}
-        <div className="flex flex-col items-center w-full space-y-6">
+        <div className="flex flex-col items-center w-full space-y-4">
           {/* Voice Orb with proper spacing */}
-          <div className="mb-6">
+          <div className="mb-4">
             <VoiceOrb 
               isListening={isListening}
               isInitializing={isInitializing}
@@ -260,7 +266,7 @@ const Studio = () => {
             <Card className="border border-muted/30">
               <CardContent className="p-0">
                 <ScrollArea className="h-[350px] sm:h-[400px] p-4">
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {conversationMessages.length > 0 ? (
                       conversationMessages.map((message, index) => (
                         <div 
