@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +8,14 @@ interface Tweet {
   tweet: string;
   topic?: string;
   edited?: boolean;
+}
+
+// Create a window-level flag to track session creation across components
+declare global {
+  interface Window {
+    _sessionCreationInProgress?: string;
+    _createdSessionId?: string;
+  }
 }
 
 export const useThreadGenerator = () => {
@@ -26,6 +33,7 @@ export const useThreadGenerator = () => {
   const sessionCreationInProgress = useRef<boolean>(false);
   const sessionCreationAttempted = useRef<boolean>(false);
   const hasLoadedTranscript = useRef<boolean>(false);
+  const hasCheckedForExistingSession = useRef<boolean>(false);
 
   // Log current user ID for debugging
   useEffect(() => {
@@ -35,6 +43,38 @@ export const useThreadGenerator = () => {
       console.log("useThreadGenerator initialized without a user");
     }
   }, [user]);
+
+  // Check for existing session with the same transcript
+  const findExistingSessionWithTranscript = async (transcriptText: string): Promise<string | null> => {
+    if (!user || !transcriptText.trim()) return null;
+    
+    try {
+      console.log("Checking for existing session with the same transcript");
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('transcript', transcriptText)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (error) {
+        console.error("Error checking for existing session:", error);
+        return null;
+      }
+      
+      if (data && data.length > 0) {
+        console.log("Found existing session with this transcript:", data[0].id);
+        return data[0].id;
+      }
+      
+      console.log("No existing session found with this transcript");
+      return null;
+    } catch (err) {
+      console.error("Error in findExistingSessionWithTranscript:", err);
+      return null;
+    }
+  };
 
   useEffect(() => {
     // Only load transcript once to prevent multiple loads
@@ -64,6 +104,34 @@ export const useThreadGenerator = () => {
     }
   }, []);
   
+  // Check for existing session with this transcript once user is available
+  useEffect(() => {
+    if (!user || !transcript.trim() || hasCheckedForExistingSession.current) return;
+    
+    const checkExistingSession = async () => {
+      // First check if there's a global created session we should use
+      if (window._createdSessionId) {
+        console.log("Using globally created session ID:", window._createdSessionId);
+        setSessionId(window._createdSessionId);
+        localStorage.setItem("currentSessionId", window._createdSessionId);
+        hasCheckedForExistingSession.current = true;
+        return;
+      }
+      
+      // Check if there's already a session with this transcript
+      const existingSessionId = await findExistingSessionWithTranscript(transcript);
+      if (existingSessionId) {
+        console.log("Using existing session with transcript:", existingSessionId);
+        setSessionId(existingSessionId);
+        localStorage.setItem("currentSessionId", existingSessionId);
+        window._createdSessionId = existingSessionId;
+        hasCheckedForExistingSession.current = true;
+      }
+    };
+    
+    checkExistingSession();
+  }, [user, transcript]);
+  
   // Fetch tone examples and create session if needed when user is available
   useEffect(() => {
     if (!user) return;
@@ -76,7 +144,7 @@ export const useThreadGenerator = () => {
     const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
     const savedSessionId = localStorage.getItem("currentSessionId");
     
-    if ((pendingTranscript || savedTranscript) && !savedSessionId && !sessionCreationAttempted.current) {
+    if ((pendingTranscript || savedTranscript) && !savedSessionId && !sessionCreationAttempted.current && !window._sessionCreationInProgress) {
       sessionCreationAttempted.current = true;
       const transcriptToUse = pendingTranscript || savedTranscript || "";
       createNewSession(transcriptToUse);
@@ -95,13 +163,32 @@ export const useThreadGenerator = () => {
       return null;
     }
     
-    // Prevent duplicate session creation
+    // Check global flag to prevent concurrent creation across components
+    if (window._sessionCreationInProgress) {
+      console.log("Session creation already in progress globally:", window._sessionCreationInProgress);
+      return window._sessionCreationInProgress;
+    }
+    
+    // Check local ref to prevent duplicate calls
     if (sessionCreationInProgress.current) {
-      console.log("Session creation already in progress, skipping duplicate request");
+      console.log("Session creation already in progress locally, skipping duplicate request");
       return null;
     }
     
+    // First, check if there's already a session with this transcript
+    const existingSessionId = await findExistingSessionWithTranscript(transcriptText);
+    if (existingSessionId) {
+      console.log("Using existing session for transcript:", existingSessionId);
+      setSessionId(existingSessionId);
+      localStorage.setItem("currentSessionId", existingSessionId);
+      window._createdSessionId = existingSessionId;
+      return existingSessionId;
+    }
+    
+    // Set both local and global flags
     sessionCreationInProgress.current = true;
+    const uniqueId = `session-creation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    window._sessionCreationInProgress = uniqueId;
     
     try {
       console.log("Creating new session for user:", user.id);
@@ -124,6 +211,7 @@ export const useThreadGenerator = () => {
         console.log("Created new session with ID:", newSessionId);
         setSessionId(newSessionId);
         localStorage.setItem("currentSessionId", newSessionId);
+        window._createdSessionId = newSessionId;
         
         // Clear the pending transcript
         localStorage.removeItem("pendingTranscript");
@@ -136,6 +224,9 @@ export const useThreadGenerator = () => {
       console.error("Error in createNewSession:", err);
     } finally {
       sessionCreationInProgress.current = false;
+      if (window._sessionCreationInProgress === uniqueId) {
+        window._sessionCreationInProgress = undefined;
+      }
     }
     
     return null;
@@ -220,7 +311,26 @@ export const useThreadGenerator = () => {
       // Ensure we have a session ID before saving tweets
       let activeSessionId = sessionId;
       
-      // If we don't have a session ID, create a new session
+      // First, check if we already have a global session ID
+      if (window._createdSessionId) {
+        console.log("Using globally created session ID:", window._createdSessionId);
+        activeSessionId = window._createdSessionId;
+        setSessionId(window._createdSessionId);
+      }
+      
+      // Check if there's an existing session with this transcript
+      if (!activeSessionId) {
+        const existingSessionId = await findExistingSessionWithTranscript(text);
+        if (existingSessionId) {
+          console.log("Using existing session with transcript:", existingSessionId);
+          activeSessionId = existingSessionId;
+          setSessionId(existingSessionId);
+          localStorage.setItem("currentSessionId", existingSessionId);
+          window._createdSessionId = existingSessionId;
+        }
+      }
+      
+      // If we still don't have a session ID, create a new session
       if (!activeSessionId) {
         console.log("No session ID found, creating new session");
         activeSessionId = await createNewSession(text);
@@ -432,6 +542,7 @@ export const useThreadGenerator = () => {
     handleDownloadAll,
     setSessionId,
     setTranscript,
-    createNewSession
+    createNewSession,
+    findExistingSessionWithTranscript
   };
 };

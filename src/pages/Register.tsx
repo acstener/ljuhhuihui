@@ -23,6 +23,38 @@ const Register = () => {
   // Check if we have a pending transcript
   const hasPendingTranscript = localStorage.getItem("pendingTranscript") !== null;
 
+  // Check for existing session with the same transcript
+  const findExistingSessionWithTranscript = async (userId: string, transcriptText: string): Promise<string | null> => {
+    if (!userId || !transcriptText.trim()) return null;
+    
+    try {
+      console.log("Checking for existing session with the same transcript for user:", userId);
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('transcript', transcriptText)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (error) {
+        console.error("Error checking for existing session:", error);
+        return null;
+      }
+      
+      if (data && data.length > 0) {
+        console.log("Found existing session with this transcript:", data[0].id);
+        return data[0].id;
+      }
+      
+      console.log("No existing session found with this transcript");
+      return null;
+    } catch (err) {
+      console.error("Error in findExistingSessionWithTranscript:", err);
+      return null;
+    }
+  };
+
   // Improved session creation with better error handling and logging
   const createSessionFromPending = async (userId: string): Promise<string | null> => {
     if (isCreatingSession || sessionCreationAttempted.current) {
@@ -30,8 +62,20 @@ const Register = () => {
       return null;
     }
     
+    // First check if there's already a global session created
+    if (window._createdSessionId) {
+      console.log("Using globally created session ID:", window._createdSessionId);
+      return window._createdSessionId;
+    }
+    
+    // Set local flags to prevent duplicate creation
     setIsCreatingSession(true);
     sessionCreationAttempted.current = true;
+    
+    // Set global flag to prevent other components from creating sessions
+    const uniqueId = `register-session-creation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    window._sessionCreationInProgress = uniqueId;
+    
     console.log("Starting session creation process for new user:", userId);
     
     try {
@@ -46,6 +90,23 @@ const Register = () => {
       if (!userId || typeof userId !== 'string' || userId.length < 5) {
         console.error("Invalid user ID for session creation:", userId);
         throw new Error("Invalid user ID for session creation");
+      }
+      
+      // First check if this user already has a session with this transcript
+      const existingSessionId = await findExistingSessionWithTranscript(userId, pendingTranscript);
+      if (existingSessionId) {
+        console.log("Found existing session with this transcript:", existingSessionId);
+        
+        // Store session ID in localStorage
+        localStorage.setItem("currentSessionId", existingSessionId);
+        
+        // Set global session ID for cross-component coordination
+        window._createdSessionId = existingSessionId;
+        
+        // Set a timestamp for lastContentGenerated to help with dashboard refresh
+        localStorage.setItem("lastContentGenerated", new Date().toISOString());
+        
+        return existingSessionId;
       }
       
       console.log("Creating session from pending transcript for user:", userId);
@@ -63,29 +124,6 @@ const Register = () => {
       }
       
       console.log("Confirmed user ID for session creation:", confirmedUserId);
-      
-      // Check if this user already has a session with this transcript
-      const { data: existingSessions, error: checkError } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('user_id', confirmedUserId)
-        .eq('transcript', pendingTranscript)
-        .limit(1);
-        
-      if (checkError) {
-        console.error("Error checking for existing sessions:", checkError);
-      } else if (existingSessions && existingSessions.length > 0) {
-        const existingSessionId = existingSessions[0].id;
-        console.log("Found existing session with this transcript:", existingSessionId);
-        
-        // Store session ID in localStorage
-        localStorage.setItem("currentSessionId", existingSessionId);
-        
-        // Set a timestamp for lastContentGenerated to help with dashboard refresh
-        localStorage.setItem("lastContentGenerated", new Date().toISOString());
-        
-        return existingSessionId;
-      }
       
       // Create a new session with the pending transcript
       const sessionTitle = `Session ${new Date().toLocaleString()}`;
@@ -110,6 +148,9 @@ const Register = () => {
         
         // Store session ID in localStorage
         localStorage.setItem("currentSessionId", sessionId);
+        
+        // Set global session ID for cross-component coordination
+        window._createdSessionId = sessionId;
         
         // Set a timestamp for lastContentGenerated to help with dashboard refresh
         localStorage.setItem("lastContentGenerated", new Date().toISOString());
@@ -136,6 +177,9 @@ const Register = () => {
       return null;
     } finally {
       setIsCreatingSession(false);
+      if (window._sessionCreationInProgress === uniqueId) {
+        window._sessionCreationInProgress = undefined;
+      }
     }
   };
 

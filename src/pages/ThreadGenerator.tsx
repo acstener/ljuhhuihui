@@ -32,7 +32,8 @@ const ThreadGenerator = () => {
     handleDownloadAll,
     setSessionId,
     setTranscript,
-    createNewSession
+    createNewSession,
+    findExistingSessionWithTranscript
   } = useThreadGenerator();
   
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ const ThreadGenerator = () => {
   const generationTriggered = useRef(false);
   const transcriptProcessed = useRef(false);
   const sessionVerified = useRef(false);
-  // Add a ref for confirmedSessionId to fix the TypeScript errors
+  const sessionFromStateProcessed = useRef(false);
   const confirmedSessionId = useRef<string | null>(null);
   
   // Debug output for important state
@@ -57,12 +58,16 @@ const ThreadGenerator = () => {
   
   // Handle session ID from location state - only once
   useEffect(() => {
-    if (location.state?.sessionId && !sessionVerified.current) {
+    if (location.state?.sessionId && !sessionFromStateProcessed.current) {
       console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
       localStorage.setItem("currentSessionId", location.state.sessionId);
       sessionVerified.current = true;
       confirmedSessionId.current = location.state.sessionId;
+      sessionFromStateProcessed.current = true;
+      
+      // Set global session ID for cross-component coordination
+      window._createdSessionId = location.state.sessionId;
     }
     
     // Handle transcript from location state - only once
@@ -102,6 +107,7 @@ const ThreadGenerator = () => {
           setSessionId(null);
           localStorage.removeItem("currentSessionId");
           confirmedSessionId.current = null;
+          window._createdSessionId = undefined;
         }
       } catch (err) {
         console.error("Failed to verify session:", err);
@@ -110,6 +116,34 @@ const ThreadGenerator = () => {
     
     verifySession();
   }, [user?.id, sessionId, setSessionId]);
+  
+  // Check for existing session with this transcript
+  useEffect(() => {
+    if (!user?.id || !transcript.trim() || sessionId || !transcriptProcessed.current || window._sessionCreationInProgress) {
+      return;
+    }
+    
+    const checkForExistingSession = async () => {
+      // First check if global session ID is set
+      if (window._createdSessionId) {
+        console.log("Using globally created session ID:", window._createdSessionId);
+        setSessionId(window._createdSessionId);
+        confirmedSessionId.current = window._createdSessionId;
+        return;
+      }
+      
+      const existingId = await findExistingSessionWithTranscript(transcript);
+      if (existingId) {
+        console.log("Found existing session with this transcript:", existingId);
+        setSessionId(existingId);
+        confirmedSessionId.current = existingId;
+        window._createdSessionId = existingId;
+        localStorage.setItem("currentSessionId", existingId);
+      }
+    };
+    
+    checkForExistingSession();
+  }, [user?.id, transcript, sessionId, findExistingSessionWithTranscript]);
   
   // Process pending transcript only once
   useEffect(() => {
