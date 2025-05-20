@@ -35,11 +35,11 @@ const Register = () => {
       // Create a new session with the pending transcript
       const { data, error } = await supabase
         .from('sessions')
-        .insert({
+        .insert([{
           user_id: userId,
           title: `Session ${new Date().toLocaleString()}`,
           transcript: pendingTranscript
-        })
+        }])
         .select();
         
       if (error) {
@@ -106,6 +106,7 @@ const Register = () => {
       // If the user was created successfully and we have a pending transcript,
       // create a session with it
       if (authData?.user && hasPendingTranscript) {
+        console.log("New user created with ID:", authData.user.id);
         const sessionId = await createSessionFromPending(authData.user.id);
         
         if (sessionId) {
@@ -119,12 +120,17 @@ const Register = () => {
               sessionId: sessionId 
             }
           });
-        } else {
-          navigate("/dashboard");
+          return;
         }
-      } else {
-        navigate("/dashboard");
       }
+      
+      // If no session was created or no pending transcript, go to dashboard
+      navigate("/dashboard", {
+        state: {
+          fromSignup: true,
+          updatedAt: new Date().toISOString()
+        }
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",

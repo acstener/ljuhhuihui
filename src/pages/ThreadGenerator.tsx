@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
@@ -57,11 +56,6 @@ const ThreadGenerator = () => {
       console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
       localStorage.setItem("currentSessionId", location.state.sessionId);
-    }
-    
-    // Check for from signup flag
-    if (location.state?.fromSignup) {
-      console.log("Coming from signup - with state:", location.state);
     }
     
     // Check for transcript in location state

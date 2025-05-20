@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,12 +28,12 @@ const Dashboard = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshCounter, setRefreshCounter] = useState(0); // Added to force refresh
-  const [fetchAttempted, setFetchAttempted] = useState(false); // Track if we've attempted to fetch
+  const [refreshCounter, setRefreshCounter] = useState(0); 
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const fetchTriggeredRef = useRef(false);
   
   // Debug output for user state and location
   useEffect(() => {
@@ -49,15 +48,7 @@ const Dashboard = () => {
     }
   }, [user, location.state]);
   
-  // Only trigger a refresh once when coming from content generation
-  useEffect(() => {
-    if (location.state?.fromContentGeneration && !fetchAttempted) {
-      setRefreshCounter(prev => prev + 1);
-      setFetchAttempted(true);
-    }
-  }, [location.state, fetchAttempted]);
-  
-  // Fetch sessions from Supabase - Fixed to prevent unnecessary fetches and infinite loops
+  // Fetch sessions from Supabase - Fixed to prevent infinite fetches
   const fetchSessions = useCallback(async (forceRefetch = false) => {
     if (!user?.id) {
       console.log("Cannot fetch sessions: No authenticated user");
@@ -66,16 +57,7 @@ const Dashboard = () => {
       return;
     }
     
-    // Only fetch if:
-    // 1. We're loading for the first time (isLoading is true)
-    // 2. OR we're explicitly forcing a refetch
-    // 3. OR we don't have any sessions yet
-    if (!isLoading && !forceRefetch && sessions.length > 0) {
-      console.log("Skipping session fetch, already have sessions");
-      return;
-    }
-    
-    // Prevent duplicate fetches when already loading
+    // Skip if already refreshing
     if (isRefreshing && !forceRefetch) {
       console.log("Already refreshing, skipping duplicate fetch");
       return;
@@ -101,23 +83,13 @@ const Dashboard = () => {
       }
       
       console.log("Fetched sessions:", sessionData?.length || 0);
+      setSessions(sessionData || []);
       
+      // Check for sessions in the database to verify
       if (sessionData && sessionData.length > 0) {
         console.log("Session data sample:", sessionData[0]);
       } else {
         console.log("No sessions found for user");
-      }
-      
-      setSessions(sessionData || []);
-      
-      // If we just went through the content generation flow but no sessions were found,
-      // show a message to the user
-      if (location.state?.fromContentGeneration && (!sessionData || sessionData.length === 0)) {
-        toast({
-          title: "No content found",
-          description: "Your content may not have been saved correctly. Try refreshing or generating again.",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       console.error("Error fetching sessions:", error);
@@ -130,17 +102,30 @@ const Dashboard = () => {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user, isLoading, sessions.length, location.state, toast, isRefreshing]);
+  }, [user, toast, isRefreshing]);
+
+  // Only fetch once when component mounts or when user changes
+  useEffect(() => {
+    if (user?.id && !fetchTriggeredRef.current) {
+      console.log("Initial session fetch for user:", user.id);
+      fetchTriggeredRef.current = true;
+      fetchSessions(false);
+    }
+  }, [user?.id, fetchSessions]);
+
+  // Handle manual refresh
+  const handleRefresh = () => {
+    if (isRefreshing) return;
+    fetchSessions(true);
+  };
 
   // Check for content-generated event once
   useEffect(() => {
     const handleContentGenerated = (event: CustomEvent<{sessionId: string, userId: string}>) => {
       console.log("Content generated event detected");
-      const { sessionId, userId } = event.detail;
-      console.log("Event details:", { sessionId, userId, currentUser: user?.id });
       
       // Only refresh if the event is for the current user
-      if (userId === user?.id) {
+      if (user?.id && event.detail.userId === user.id) {
         fetchSessions(true);
       }
     };
@@ -153,68 +138,33 @@ const Dashboard = () => {
     };
   }, [user, fetchSessions]);
   
-  // Listen to storage events for cross-tab communication - once
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'lastContentGenerated' || e.key === 'currentSessionId') {
-        console.log('Storage changed, refreshing sessions');
-        fetchSessions(true);
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [fetchSessions]);
-
   // Check for localStorage indicators that content was generated - once
   useEffect(() => {
-    const checkForContentGeneration = () => {
-      const lastGenerated = localStorage.getItem("lastContentGenerated");
-      const currentSessionId = localStorage.getItem("currentSessionId");
-      
-      if (lastGenerated && currentSessionId) {
-        const timestamp = new Date(lastGenerated).getTime();
-        const now = new Date().getTime();
-        const fiveMinutesAgo = now - (5 * 60 * 1000); // 5 minutes in milliseconds
-        
-        // If content was generated in the last 5 minutes, refresh
-        if (timestamp > fiveMinutesAgo) {
-          console.log("Recent content generation detected, refreshing sessions");
-          fetchSessions(true);
-          
-          // Clear the lastContentGenerated flag after refreshing
-          localStorage.removeItem("lastContentGenerated");
-        }
-      }
-    };
+    const lastGenerated = localStorage.getItem("lastContentGenerated");
     
-    checkForContentGeneration();
-  }, [fetchSessions]);
-
-  // Force fetch on refresh counter change - once per change
+    if (lastGenerated && user?.id) {
+      const timestamp = new Date(lastGenerated).getTime();
+      const now = new Date().getTime();
+      const fiveMinutesAgo = now - (5 * 60 * 1000); // 5 minutes in milliseconds
+      
+      // If content was generated in the last 5 minutes, refresh
+      if (timestamp > fiveMinutesAgo) {
+        console.log("Recent content generation detected, refreshing sessions");
+        fetchSessions(true);
+        
+        // Clear the lastContentGenerated flag after refreshing
+        localStorage.removeItem("lastContentGenerated");
+      }
+    }
+  }, [user?.id, fetchSessions]);
+  
+  // If coming from signup or content generation, refresh once
   useEffect(() => {
-    if (refreshCounter > 0) {
-      console.log(`Manual refresh triggered (${refreshCounter}), fetching sessions`);
+    if (location.state?.fromContentGeneration || location.state?.fromSignup) {
+      console.log("Coming from content generation or signup, refreshing sessions");
       fetchSessions(true);
     }
-  }, [refreshCounter, fetchSessions]);
-
-  // Fetch sessions when component mounts or user changes
-  useEffect(() => {
-    if (user?.id && !fetchAttempted) {
-      console.log("Initial session fetch for user:", user.id);
-      fetchSessions(false);
-      setFetchAttempted(true);
-    }
-  }, [user?.id, fetchSessions, fetchAttempted]);
-  
-  // Handle manual refresh
-  const handleRefresh = async () => {
-    if (isRefreshing) return;
-    
-    setIsRefreshing(true);
-    setRefreshCounter(prev => prev + 1);
-  };
+  }, [location.state, fetchSessions]);
 
   const handleViewSession = (session: Session) => {
     navigate(`/session/${session.id}`, { 

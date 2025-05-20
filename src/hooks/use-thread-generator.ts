@@ -40,8 +40,6 @@ export const useThreadGenerator = () => {
     if (pendingTranscript) {
       console.log("Loading pending transcript from localStorage");
       setTranscript(pendingTranscript);
-      // Clear from localStorage to prevent reloading on refresh
-      localStorage.removeItem("pendingTranscript");
     } else if (savedTranscript) {
       setTranscript(savedTranscript);
     }
@@ -52,13 +50,19 @@ export const useThreadGenerator = () => {
       console.log("Restoring session ID from localStorage:", savedSessionId);
       setSessionId(savedSessionId);
     }
-    
-    // Fetch tone examples immediately if we have a user
+  }, []);
+  
+  // Fetch tone examples and create session if needed when user is available
+  useEffect(() => {
     if (user) {
       fetchToneExamples();
       
       // If we have a transcript but no sessionId, try to create a session
-      if ((pendingTranscript || savedTranscript) && !savedSessionId && user) {
+      const pendingTranscript = localStorage.getItem("pendingTranscript");
+      const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
+      const savedSessionId = localStorage.getItem("currentSessionId");
+      
+      if ((pendingTranscript || savedTranscript) && !savedSessionId) {
         createNewSession(pendingTranscript || savedTranscript || "");
       }
     }
@@ -71,15 +75,20 @@ export const useThreadGenerator = () => {
       return null;
     }
     
+    if (!transcriptText.trim()) {
+      console.log("Cannot create session: Empty transcript");
+      return null;
+    }
+    
     try {
       console.log("Creating new session for user:", user.id);
       const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
-        .insert({
+        .insert([{
           user_id: user.id,
           title: `Session ${new Date().toLocaleString()}`,
-          transcript: transcriptText || ""
-        })
+          transcript: transcriptText
+        }])
         .select();
       
       if (sessionError) {
@@ -132,7 +141,6 @@ export const useThreadGenerator = () => {
       }
     } catch (err: any) {
       console.error("Failed to fetch tone examples:", err);
-      setError("Failed to load tone examples. Please try again later.");
     }
   };
 
