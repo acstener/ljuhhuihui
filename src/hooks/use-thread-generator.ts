@@ -25,12 +25,16 @@ export const useThreadGenerator = () => {
   useEffect(() => {
     // Load transcript and sessionId from localStorage or state
     const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
+    const pendingTranscript = localStorage.getItem("pendingTranscript");
     
-    if (savedTranscript) {
+    // Use pendingTranscript first if available, then fall back to savedTranscript
+    if (pendingTranscript) {
+      console.log("Loading pending transcript from localStorage");
+      setTranscript(pendingTranscript);
+      // Clear from localStorage to prevent reloading on refresh
+      localStorage.removeItem("pendingTranscript");
+    } else if (savedTranscript) {
       setTranscript(savedTranscript);
-      
-      // Fetch tone preferences
-      fetchToneExamples();
     }
     
     // Try to get session ID from localStorage
@@ -38,7 +42,12 @@ export const useThreadGenerator = () => {
     if (savedSessionId) {
       setSessionId(savedSessionId);
     }
-  }, []);
+    
+    // Fetch tone examples immediately if we have a user
+    if (user) {
+      fetchToneExamples();
+    }
+  }, [user]);
 
   // Fetch tone examples from user's preferences
   const fetchToneExamples = async () => {
@@ -94,12 +103,45 @@ export const useThreadGenerator = () => {
       
       setTweets(generatedTweets);
       
-      // If we have a user and session ID, save tweets to Supabase
-      if (user && sessionId) {
+      // Create or update session in Supabase first
+      let activeSessionId = sessionId;
+      
+      // If we have a user but no session ID, create a new session
+      if (user && !activeSessionId) {
         try {
+          console.log("Creating new session for user:", user.id);
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('sessions')
+            .insert({
+              user_id: user.id,
+              title: `Session ${new Date().toLocaleString()}`,
+              transcript: text
+            })
+            .select();
+          
+          if (sessionError) {
+            console.error("Failed to create session:", sessionError);
+            throw sessionError;
+          }
+          
+          if (sessionData && sessionData.length > 0) {
+            activeSessionId = sessionData[0].id;
+            setSessionId(activeSessionId);
+            localStorage.setItem("currentSessionId", activeSessionId);
+            console.log("Created new session with ID:", activeSessionId);
+          }
+        } catch (err) {
+          console.error("Failed to create session:", err);
+        }
+      }
+      
+      // Now save tweets to Supabase if we have a user and session ID
+      if (user && activeSessionId) {
+        try {
+          console.log("Saving generated content for session:", activeSessionId);
           const tweetsToSave = generatedTweets.map((tweet: GeneratedTweet) => ({
             user_id: user.id,
-            session_id: sessionId,
+            session_id: activeSessionId,
             content: tweet.tweet,
             topic: tweet.topic || null
           }));
@@ -113,41 +155,6 @@ export const useThreadGenerator = () => {
           console.log("Saved generated content to Supabase");
         } catch (err) {
           console.error("Failed to save generated content:", err);
-        }
-      } else if (user && !sessionId && text) {
-        // If we don't have a session ID but have a transcript, create a new session
-        try {
-          const { data: sessionData, error: sessionError } = await supabase
-            .from('sessions')
-            .insert({
-              user_id: user.id,
-              title: `Session ${new Date().toLocaleString()}`,
-              transcript: text
-            })
-            .select();
-          
-          if (sessionError) throw sessionError;
-          if (sessionData && sessionData.length > 0) {
-            const activeSessionId = sessionData[0].id;
-            setSessionId(activeSessionId);
-            localStorage.setItem("currentSessionId", activeSessionId);
-            
-            // Now save the tweets
-            const tweetsToSave = generatedTweets.map((tweet: GeneratedTweet) => ({
-              user_id: user.id,
-              session_id: activeSessionId,
-              content: tweet.tweet,
-              topic: tweet.topic || null
-            }));
-            
-            const { error: insertError } = await supabase
-              .from('generated_content')
-              .insert(tweetsToSave);
-              
-            if (insertError) throw insertError;
-          }
-        } catch (err) {
-          console.error("Failed to create session:", err);
         }
       }
     } catch (err: any) {
@@ -281,6 +288,6 @@ export const useThreadGenerator = () => {
     handleCopyTweet,
     handleDownloadAll,
     setSessionId,
-    setTranscript // Export this function for use in ThreadGenerator
+    setTranscript
   };
 };

@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders } from "lucide-react";
+import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/App";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
@@ -27,39 +28,48 @@ interface GeneratedContent {
 const Dashboard = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   
   // Fetch sessions from Supabase
-  useEffect(() => {
-    const fetchSessions = async () => {
-      if (!user?.id) return;
-      
-      setIsLoading(true);
-      
-      try {
-        console.log("Fetching sessions for user:", user.id);
-        const { data: sessionData, error: sessionError } = await supabase
-          .from('sessions')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(6);
-          
-        if (sessionError) throw sessionError;
-        
-        console.log("Fetched sessions:", sessionData?.length || 0);
-        setSessions(sessionData || []);
-      } catch (error) {
-        console.error("Error fetching sessions:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchSessions = async () => {
+    if (!user?.id) return;
     
+    setIsLoading(true);
+    
+    try {
+      console.log("Fetching sessions for user:", user.id);
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(6);
+        
+      if (sessionError) throw sessionError;
+      
+      console.log("Fetched sessions:", sessionData?.length || 0);
+      setSessions(sessionData || []);
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch sessions when component mounts or user changes
+  useEffect(() => {
     if (user?.id) {
       fetchSessions();
     }
   }, [user?.id]);
+  
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchSessions();
+    setIsRefreshing(false);
+  };
 
   const handleViewSession = (session: Session) => {
     navigate(`/session/${session.id}`, { 
@@ -122,9 +132,20 @@ const Dashboard = () => {
       
       <div className="flex items-center justify-between pt-4 pb-2 border-b">
         <h2 className="text-xl font-medium">Recent Activity</h2>
-        <Badge variant="outline" className="text-xs">
-          <Calendar className="w-3 h-3 mr-1" /> Last 30 days
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Badge variant="outline" className="text-xs">
+            <Calendar className="w-3 h-3 mr-1" /> Last 30 days
+          </Badge>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
