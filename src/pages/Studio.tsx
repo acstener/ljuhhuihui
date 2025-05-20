@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,10 +41,11 @@ const Studio = () => {
   
   // Save a copy of transcript for navigation
   const transcriptRef = useRef(transcript);
+  
+  // Auto-save transcript when it changes and we have a session ID
   useEffect(() => {
     transcriptRef.current = transcript;
 
-    // Auto-save transcript when it changes and we have a session ID
     if (sessionId && user && transcript.trim()) {
       const saveTranscript = async () => {
         try {
@@ -207,46 +207,44 @@ const Studio = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col px-4 sm:px-6 py-6 sm:py-8">
-      {/* Fixed width content container with proper spacing */}
-      <div className="w-full max-w-3xl mx-auto flex flex-col flex-1">
-        {/* Header - light touch with proper spacing */}
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 px-3 sm:py-3 sm:px-4 rounded-lg mb-6 border-b">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-1 text-xs sm:text-sm sm:gap-2"
-            >
-              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="whitespace-nowrap">Back to Dashboard</span>
-            </Button>
-            
-            <Button
-              onClick={useTranscript}
-              disabled={!transcript.trim() || isSaving}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
-              size="sm"
-            >
-              {isSaving ? "Processing..." : "Generate Content"}
-              <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
-          </div>
+    <div className="min-h-screen bg-background">
+      {/* Content container with proper spacing */}
+      <div className="max-w-4xl mx-auto px-4 py-4 sm:py-6">
+        {/* Header with reduced spacing */}
+        <header className="flex flex-wrap items-center justify-between gap-2 mb-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/dashboard")}
+            className="flex items-center gap-1 text-xs sm:text-sm sm:gap-2"
+          >
+            <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+            <span className="whitespace-nowrap">Back to Dashboard</span>
+          </Button>
+          
+          <Button
+            onClick={useTranscript}
+            disabled={!transcript.trim() || isSaving}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
+            size="sm"
+          >
+            {isSaving ? "Processing..." : "Generate Content"}
+            <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+          </Button>
         </header>
         
-        {/* Title section with balanced spacing */}
-        <div className="text-center mb-8 sm:mb-10">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3">Studio</h1>
+        {/* Title section with reduced spacing */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Studio</h1>
           <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
             Record your thoughts and transform them into authentic content
           </p>
         </div>
         
-        {/* Main content area with proper vertical rhythm */}
-        <div className="flex flex-col items-center w-full space-y-8 sm:space-y-10">
+        {/* Main content area with balanced spacing */}
+        <div className="flex flex-col items-center w-full space-y-6">
           {/* Voice Orb with proper spacing */}
-          <div className="relative">
+          <div className="mb-6">
             <VoiceOrb 
               isListening={isListening}
               isInitializing={isInitializing}
@@ -256,12 +254,12 @@ const Studio = () => {
             />
           </div>
           
-          {/* Chat conversation container with better proportions */}
+          {/* Chat conversation container */}
           <div className="w-full max-w-xl mx-auto space-y-4">
-            {/* Chat messages area with increased height */}
+            {/* Chat messages area with proper height */}
             <Card className="border border-muted/30">
               <CardContent className="p-0">
-                <ScrollArea className="h-80 sm:h-96 p-4">
+                <ScrollArea className="h-[350px] sm:h-[400px] p-4">
                   <div className="space-y-4">
                     {conversationMessages.length > 0 ? (
                       conversationMessages.map((message, index) => (
@@ -270,7 +268,7 @@ const Studio = () => {
                           className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
                         >
                           <div 
-                            className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${
+                            className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${
                               message.type === "user" 
                                 ? "bg-primary/15 text-foreground/90" 
                                 : "bg-muted/30 text-foreground/90 flex items-start"
@@ -297,9 +295,9 @@ const Studio = () => {
               </CardContent>
             </Card>
             
-            {/* Input area with proper spacing */}
+            {/* Input area with reduced spacing */}
             {isConnected && (
-              <div className="w-full mt-4">
+              <div className="w-full">
                 <div className="flex gap-2 items-end">
                   <Textarea
                     value={userInput}
