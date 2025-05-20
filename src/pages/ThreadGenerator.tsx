@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
@@ -40,6 +41,8 @@ const ThreadGenerator = () => {
   
   // Flag to track if content generation has been triggered
   const generationTriggered = useRef(false);
+  // Flag to track if session creation has been attempted
+  const sessionCreationAttempted = useRef(false);
   
   // Debug output for important state
   useEffect(() => {
@@ -68,36 +71,46 @@ const ThreadGenerator = () => {
     }
   }, [location.state, setSessionId, setTranscript]);
   
-  // Check for pending transcript in localStorage
+  // Check for pending transcript in localStorage and handle session creation
   useEffect(() => {
     const pendingTranscript = localStorage.getItem("pendingTranscript");
-    if (pendingTranscript && !transcript) {
-      console.log("Loading pending transcript from localStorage");
+    
+    // Only process if:
+    // 1. We have a pending transcript
+    // 2. No transcript is already loaded
+    // 3. We have a user
+    // 4. We haven't attempted session creation yet 
+    if (pendingTranscript && !transcript && user && !sessionCreationAttempted.current) {
+      console.log("Loading pending transcript from localStorage and creating session");
       setTranscript(pendingTranscript);
+      sessionCreationAttempted.current = true;
       
-      // If we have a user, we should create a session for this transcript
-      if (user && !sessionId) {
-        console.log("Creating new session for pending transcript and user:", user.id);
-        createNewSession(pendingTranscript).then((newSessionId) => {
-          if (newSessionId) {
-            console.log("Created new session from pending transcript:", newSessionId);
-            // Clear from localStorage to prevent reloading on refresh once we've created a session
-            localStorage.removeItem("pendingTranscript");
-            toast({
-              title: "Transcript Saved",
-              description: "Your conversation has been saved to your account.",
-            });
-          }
-        });
-      } else {
-        // If we don't have a user, keep in localStorage for now
-        toast({
-          title: "Transcript Loaded",
-          description: "Your conversation has been loaded and is being processed.",
-        });
-      }
+      // Create a session for this transcript
+      createNewSession(pendingTranscript).then((newSessionId) => {
+        if (newSessionId) {
+          console.log("Created new session from pending transcript:", newSessionId);
+          // Clear from localStorage to prevent reloading on refresh
+          localStorage.removeItem("pendingTranscript");
+          // Set timestamp to trigger dashboard refresh
+          localStorage.setItem("lastContentGenerated", new Date().toISOString());
+          
+          toast({
+            title: "Transcript Saved",
+            description: "Your conversation has been saved to your account.",
+          });
+        }
+      });
+    } 
+    // Handle case where we have a pending transcript but no user
+    else if (pendingTranscript && !transcript && !user) {
+      console.log("Loading pending transcript from localStorage (no user)");
+      setTranscript(pendingTranscript);
+      toast({
+        title: "Transcript Loaded",
+        description: "Your conversation has been loaded and is being processed.",
+      });
     }
-  }, [transcript, setTranscript, toast, user, sessionId, createNewSession]);
+  }, [transcript, setTranscript, toast, user, createNewSession]);
   
   // Auto-generate tweets when component loads if transcript exists and API key is set
   useEffect(() => {

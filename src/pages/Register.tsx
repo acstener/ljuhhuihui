@@ -52,8 +52,16 @@ const Register = () => {
         console.log("Created new session with ID:", sessionId);
         localStorage.setItem("currentSessionId", sessionId);
         
+        // Set a timestamp for lastContentGenerated to help with dashboard refresh
+        localStorage.setItem("lastContentGenerated", new Date().toISOString());
+        
         // Clear pending transcript now that we've created a session
         localStorage.removeItem("pendingTranscript");
+        
+        // Dispatch an event to notify other components
+        window.dispatchEvent(new CustomEvent('content-generated', { 
+          detail: { sessionId: sessionId, userId: userId }
+        }));
         
         return sessionId;
       }
