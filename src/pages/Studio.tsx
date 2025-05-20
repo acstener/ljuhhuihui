@@ -1,7 +1,8 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowLeft, Zap } from "lucide-react";
+import { Send, ArrowLeft, Zap, MessageCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
@@ -99,8 +100,43 @@ const Studio = () => {
     }
   }, [isListening, sessionId, user, toast]);
   
-  // Format transcript for display
-  const formattedTranscript = transcript.replace(/^AI:/gm, "Studio:");
+  // Parse transcript into conversation format
+  const parseTranscript = () => {
+    if (!transcript.trim()) return [];
+    
+    // Replace AI: with Studio: for display
+    const formattedText = transcript.replace(/^AI:/gm, "Studio:");
+    
+    // Split by double line breaks
+    const parts = formattedText.split(/\n\n+/);
+    const messages = [];
+    
+    for (const part of parts) {
+      if (part.trim()) {
+        if (part.startsWith("You:")) {
+          messages.push({
+            type: "user",
+            content: part.substring(4).trim()
+          });
+        } else if (part.startsWith("Studio:")) {
+          messages.push({
+            type: "studio",
+            content: part.substring(7).trim()
+          });
+        } else {
+          // Handle messages with no prefix as Studio messages
+          messages.push({
+            type: "studio",
+            content: part.trim()
+          });
+        }
+      }
+    }
+    
+    return messages;
+  };
+  
+  const conversationMessages = parseTranscript();
   
   const useTranscript = async () => {
     if (!transcriptRef.current.trim()) {
@@ -214,33 +250,45 @@ const Studio = () => {
           />
         </div>
         
-        {/* More subtle Transcript Display */}
-        <div className="w-full max-w-2xl mx-auto">
-          <Card className="rounded-xl overflow-hidden border-0 bg-transparent">
-            <CardContent className="p-0">
-              <ScrollArea className="max-h-[280px]">
-                <div className="p-2">
-                  {transcript ? (
-                    <div className="text-sm leading-relaxed font-normal text-foreground/90 whitespace-pre-wrap">
-                      {formattedTranscript}
+        {/* Chat-style Conversation Display */}
+        <div className="w-full max-w-xl mx-auto">
+          <ScrollArea className="h-72 pr-2 mb-4">
+            <div className="space-y-3">
+              {conversationMessages.length > 0 ? (
+                conversationMessages.map((message, index) => (
+                  <div 
+                    key={index}
+                    className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div 
+                      className={`max-w-[85%] px-4 py-2 rounded-2xl text-sm ${
+                        message.type === "user" 
+                          ? "bg-primary/15 text-foreground/90" 
+                          : "bg-muted/30 text-foreground/90 flex items-start"
+                      }`}
+                    >
+                      {message.type === "studio" && (
+                        <MessageCircle className="h-3 w-3 mr-2 mt-1 text-primary/70" />
+                      )}
+                      <span>{message.content}</span>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-28 text-center">
-                      <p className="text-muted-foreground/70 text-sm font-normal">
-                        {isListening 
-                          ? "Listening... speak clearly" 
-                          : "Start a conversation to see the transcript here"}
-                      </p>
-                    </div>
-                  )}
+                  </div>
+                ))
+              ) : (
+                <div className="flex justify-center items-center h-52">
+                  <p className="text-sm font-normal text-muted-foreground/70">
+                    {isListening 
+                      ? "Listening... speak clearly" 
+                      : "Start a conversation to see the transcript here"}
+                  </p>
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </ScrollArea>
           
           {/* Text Input Field */}
           {isConnected && (
-            <div className="mt-4 w-full">
+            <div className="w-full">
               <div className="flex gap-2 items-end">
                 <Textarea
                   value={userInput}
