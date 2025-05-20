@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Lock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const ThreadGenerator = () => {
   const location = useLocation();
@@ -26,12 +27,15 @@ const ThreadGenerator = () => {
     handleDeleteTweet,
     handleCopyTweet,
     handleDownloadAll,
-    setSessionId
+    setSessionId,
+    setTranscript,
+    createNewSession
   } = useThreadGenerator();
   
   const navigate = useNavigate();
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(!apiKeySet);
+  const { toast } = useToast();
   
   // Flag to track if content generation has been triggered
   const generationTriggered = useRef(false);
@@ -39,10 +43,32 @@ const ThreadGenerator = () => {
   // Get session ID from location state if available
   useEffect(() => {
     if (location.state?.sessionId) {
+      console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
       localStorage.setItem("currentSessionId", location.state.sessionId);
     }
-  }, [location.state, setSessionId]);
+    
+    // Check for transcript in location state
+    if (location.state?.transcript) {
+      console.log("Setting transcript from location state");
+      setTranscript(location.state.transcript);
+    }
+  }, [location.state, setSessionId, setTranscript]);
+  
+  // Check for pending transcript in localStorage
+  useEffect(() => {
+    const pendingTranscript = localStorage.getItem("pendingTranscript");
+    if (pendingTranscript && !transcript) {
+      console.log("Loading pending transcript from localStorage");
+      setTranscript(pendingTranscript);
+      // Clear from localStorage to prevent reloading on refresh
+      localStorage.removeItem("pendingTranscript");
+      toast({
+        title: "Transcript Loaded",
+        description: "Your conversation has been loaded and is being processed.",
+      });
+    }
+  }, [transcript, setTranscript, toast]);
   
   // Auto-generate tweets when component loads if transcript exists and API key is set
   useEffect(() => {
@@ -82,7 +108,8 @@ const ThreadGenerator = () => {
   };
 
   const handleBackToDashboard = () => {
-    navigate("/dashboard");
+    // Pass state to indicate we're coming from content generation
+    navigate("/dashboard", { state: { fromContentGeneration: true }});
   };
 
   const handleViewSession = () => {

@@ -1,12 +1,11 @@
 
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/App";
-import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,10 +30,30 @@ const Dashboard = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check for content-generated event
+  useEffect(() => {
+    const handleContentGenerated = (event: CustomEvent) => {
+      console.log("Content generated event detected, refreshing sessions");
+      fetchSessions();
+    };
+    
+    // Type assertion to work with CustomEvent
+    window.addEventListener('content-generated', handleContentGenerated as EventListener);
+    
+    return () => {
+      window.removeEventListener('content-generated', handleContentGenerated as EventListener);
+    };
+  }, []);
   
   // Fetch sessions from Supabase
   const fetchSessions = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log("Cannot fetch sessions: No authenticated user");
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     
@@ -43,10 +62,14 @@ const Dashboard = () => {
       const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(6);
         
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error("Error fetching sessions:", sessionError);
+        throw sessionError;
+      }
       
       console.log("Fetched sessions:", sessionData?.length || 0);
       setSessions(sessionData || []);
@@ -56,6 +79,26 @@ const Dashboard = () => {
       setIsLoading(false);
     }
   };
+
+  // Check for returning from content generation
+  useEffect(() => {
+    const checkForReturnFromContent = () => {
+      // Check if we're coming from a content generation page
+      if (location.state?.fromContentGeneration) {
+        console.log("Returning from content generation, refreshing sessions");
+        fetchSessions();
+      }
+      
+      // Check if there's a recently used session ID in localStorage
+      const currentSessionId = localStorage.getItem("currentSessionId");
+      if (currentSessionId) {
+        console.log("Found session ID in localStorage, refreshing sessions");
+        fetchSessions();
+      }
+    };
+    
+    checkForReturnFromContent();
+  }, [location]);
 
   // Fetch sessions when component mounts or user changes
   useEffect(() => {
