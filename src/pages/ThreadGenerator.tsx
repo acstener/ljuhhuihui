@@ -39,12 +39,10 @@ const ThreadGenerator = () => {
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(!apiKeySet);
   const { toast } = useToast();
   
-  // Flag to track if content generation has been triggered
+  // Refs to prevent duplicate operations
   const generationTriggered = useRef(false);
-  // Flag to track if session creation has been attempted
-  const sessionCreationAttempted = useRef(false);
-  // Keep track of the last confirmed session ID
-  const confirmedSessionId = useRef<string | null>(null);
+  const transcriptProcessed = useRef(false);
+  const sessionVerified = useRef(false);
   
   // Debug output for important state
   useEffect(() => {
@@ -54,30 +52,28 @@ const ThreadGenerator = () => {
     console.log("ThreadGenerator render - Location state:", location.state);
   }, [user?.id, sessionId, transcript, location.state]);
   
-  // Get session ID from location state if available
+  // Handle session ID from location state - only once
   useEffect(() => {
-    if (location.state?.sessionId) {
+    if (location.state?.sessionId && !sessionVerified.current) {
       console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
-      confirmedSessionId.current = location.state.sessionId;
       localStorage.setItem("currentSessionId", location.state.sessionId);
+      sessionVerified.current = true;
     }
     
-    // Check for transcript in location state
-    if (location.state?.transcript) {
+    // Handle transcript from location state - only once
+    if (location.state?.transcript && !transcriptProcessed.current) {
       console.log("Setting transcript from location state");
       setTranscript(location.state.transcript);
+      transcriptProcessed.current = true;
     }
   }, [location.state, setSessionId, setTranscript]);
   
-  // Verify session exists and belongs to current user
+  // Verify session belongs to current user - only once
   useEffect(() => {
     const verifySession = async () => {
-      // Only verify if we have both a user and a session ID
-      if (!user?.id || !sessionId) return;
-      
-      // Skip if we've already verified this session
-      if (confirmedSessionId.current === sessionId) return;
+      // Only verify if we have both a user and a session ID and haven't verified yet
+      if (!user?.id || !sessionId || sessionVerified.current) return;
       
       try {
         console.log("Verifying session:", sessionId, "belongs to user:", user.id);
@@ -95,12 +91,10 @@ const ThreadGenerator = () => {
         
         if (data && data.user_id === user.id) {
           console.log("Session verified as belonging to current user");
-          confirmedSessionId.current = sessionId;
+          sessionVerified.current = true;
         } else {
           console.warn("Session does not belong to current user, will create new session");
-          // We'll let the session creation logic handle this case
           setSessionId(null);
-          confirmedSessionId.current = null;
           localStorage.removeItem("currentSessionId");
         }
       } catch (err) {
@@ -111,72 +105,31 @@ const ThreadGenerator = () => {
     verifySession();
   }, [user?.id, sessionId, setSessionId]);
   
-  // Check for pending transcript in localStorage and handle session creation
+  // Process pending transcript only once
   useEffect(() => {
+    if (transcriptProcessed.current) return;
+    
     const pendingTranscript = localStorage.getItem("pendingTranscript");
-    const storedSessionId = localStorage.getItem("currentSessionId");
+    if (!pendingTranscript) return;
     
-    // First priority: Use location state transcript
-    if (location.state?.transcript && !transcript) {
-      setTranscript(location.state.transcript);
-      return;
-    }
+    console.log("Loading pending transcript from localStorage");
+    setTranscript(pendingTranscript);
+    transcriptProcessed.current = true;
     
-    // Second priority: Use stored session ID if it exists
-    if (storedSessionId && !sessionId && confirmedSessionId.current !== storedSessionId) {
-      console.log("Using stored session ID from localStorage:", storedSessionId);
-      setSessionId(storedSessionId);
-      confirmedSessionId.current = storedSessionId;
-      return;
-    }
-    
-    // Third priority: Use pending transcript from localStorage and create new session if needed
-    if (pendingTranscript && !transcript) {
-      console.log("Loading pending transcript from localStorage");
-      setTranscript(pendingTranscript);
-      
-      // If user is authenticated, create a session for this transcript
-      if (user && !sessionCreationAttempted.current && !sessionId) {
-        console.log("Creating new session from pending transcript");
-        sessionCreationAttempted.current = true;
-        
-        createNewSession(pendingTranscript).then((newSessionId) => {
-          if (newSessionId) {
-            console.log("Created new session from pending transcript:", newSessionId);
-            confirmedSessionId.current = newSessionId;
-            
-            // Clear from localStorage to prevent reloading on refresh
-            localStorage.removeItem("pendingTranscript");
-            localStorage.setItem("lastContentGenerated", new Date().toISOString());
-            
-            toast({
-              title: "Transcript Saved",
-              description: "Your conversation has been saved to your account.",
-            });
-          }
-        });
-      } else if (!user) {
-        toast({
-          title: "Transcript Loaded",
-          description: "Your conversation has been loaded and is being processed.",
-        });
-      }
-    }
-  }, [transcript, setTranscript, toast, user, createNewSession, sessionId, setSessionId, location.state]);
+    toast({
+      title: "Transcript Loaded",
+      description: "Your conversation has been loaded and is being processed.",
+    });
+  }, [setTranscript, toast]);
   
-  // Auto-generate tweets when component loads if transcript exists and API key is set
+  // Auto-generate tweets only once
   useEffect(() => {
-    // Only generate tweets if:
-    // 1. We have a transcript
-    // 2. No tweets are already loaded
-    // 3. Not currently generating
-    // 4. API key is set
-    // 5. Content generation hasn't been triggered before
+    if (generationTriggered.current) return;
+    
     if (transcript && 
         tweets.length === 0 && 
         !isGenerating && 
-        apiKeySet && 
-        !generationTriggered.current) {
+        apiKeySet) {
       console.log("Triggering initial content generation");
       generationTriggered.current = true;
       generateTweets();
@@ -188,7 +141,7 @@ const ThreadGenerator = () => {
       setApiKey(apiKeyInput.trim());
       setApiKeyDialogOpen(false);
       
-      // Generate tweets if transcript exists and we haven't generated before
+      // Generate tweets if we have a transcript and haven't generated yet
       if (transcript && tweets.length === 0 && !generationTriggered.current) {
         console.log("Triggering content generation after API key set");
         generationTriggered.current = true;

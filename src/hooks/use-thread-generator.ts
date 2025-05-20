@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
@@ -21,6 +21,11 @@ export const useThreadGenerator = () => {
   const [apiKeySet, setApiKeySet] = useState<boolean>(!!getOpenAIKey());
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  // Refs to prevent duplicate operations
+  const sessionCreationInProgress = useRef<boolean>(false);
+  const sessionCreationAttempted = useRef<boolean>(false);
+  const hasLoadedTranscript = useRef<boolean>(false);
 
   // Log current user ID for debugging
   useEffect(() => {
@@ -32,6 +37,11 @@ export const useThreadGenerator = () => {
   }, [user]);
 
   useEffect(() => {
+    // Only load transcript once to prevent multiple loads
+    if (hasLoadedTranscript.current) {
+      return;
+    }
+    
     // Load transcript and sessionId from localStorage or state
     const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
     const pendingTranscript = localStorage.getItem("pendingTranscript");
@@ -40,8 +50,10 @@ export const useThreadGenerator = () => {
     if (pendingTranscript) {
       console.log("Loading pending transcript from localStorage");
       setTranscript(pendingTranscript);
+      hasLoadedTranscript.current = true;
     } else if (savedTranscript) {
       setTranscript(savedTranscript);
+      hasLoadedTranscript.current = true;
     }
     
     // Try to get session ID from localStorage
@@ -54,17 +66,20 @@ export const useThreadGenerator = () => {
   
   // Fetch tone examples and create session if needed when user is available
   useEffect(() => {
-    if (user) {
-      fetchToneExamples();
-      
-      // If we have a transcript but no sessionId, try to create a session
-      const pendingTranscript = localStorage.getItem("pendingTranscript");
-      const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
-      const savedSessionId = localStorage.getItem("currentSessionId");
-      
-      if ((pendingTranscript || savedTranscript) && !savedSessionId) {
-        createNewSession(pendingTranscript || savedTranscript || "");
-      }
+    if (!user) return;
+    
+    // Fetch tone examples
+    fetchToneExamples();
+    
+    // If we have a transcript but no sessionId, try to create a session
+    const pendingTranscript = localStorage.getItem("pendingTranscript");
+    const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
+    const savedSessionId = localStorage.getItem("currentSessionId");
+    
+    if ((pendingTranscript || savedTranscript) && !savedSessionId && !sessionCreationAttempted.current) {
+      sessionCreationAttempted.current = true;
+      const transcriptToUse = pendingTranscript || savedTranscript || "";
+      createNewSession(transcriptToUse);
     }
   }, [user]);
   
@@ -79,6 +94,14 @@ export const useThreadGenerator = () => {
       console.log("Cannot create session: Empty transcript");
       return null;
     }
+    
+    // Prevent duplicate session creation
+    if (sessionCreationInProgress.current) {
+      console.log("Session creation already in progress, skipping duplicate request");
+      return null;
+    }
+    
+    sessionCreationInProgress.current = true;
     
     try {
       console.log("Creating new session for user:", user.id);
@@ -101,12 +124,18 @@ export const useThreadGenerator = () => {
         console.log("Created new session with ID:", newSessionId);
         setSessionId(newSessionId);
         localStorage.setItem("currentSessionId", newSessionId);
+        
+        // Clear the pending transcript
+        localStorage.removeItem("pendingTranscript");
+        
         return newSessionId;
       } else {
         console.error("No session data returned after insert");
       }
     } catch (err) {
       console.error("Error in createNewSession:", err);
+    } finally {
+      sessionCreationInProgress.current = false;
     }
     
     return null;
@@ -182,6 +211,7 @@ export const useThreadGenerator = () => {
     setIsGenerating(true);
     
     try {
+      console.log("Generating authentic content from transcript:", text);
       // Use the utility function directly instead of the edge function
       const generatedTweets = await generateTweetsFromTranscript(text, 5, exampleTweets);
       

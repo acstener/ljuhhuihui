@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/App";
 import { Button } from "@/components/ui/button";
@@ -16,17 +17,21 @@ const Register = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   
+  // Refs to prevent duplicate operations
+  const sessionCreationAttempted = useRef(false);
+  
   // Check if we have a pending transcript
   const hasPendingTranscript = localStorage.getItem("pendingTranscript") !== null;
 
   // Improved session creation with better error handling and logging
   const createSessionFromPending = async (userId: string): Promise<string | null> => {
-    if (isCreatingSession) {
-      console.log("Session creation already in progress, skipping duplicate request");
+    if (isCreatingSession || sessionCreationAttempted.current) {
+      console.log("Session creation already attempted, skipping duplicate request");
       return null;
     }
     
     setIsCreatingSession(true);
+    sessionCreationAttempted.current = true;
     console.log("Starting session creation process for new user:", userId);
     
     try {
@@ -59,10 +64,32 @@ const Register = () => {
       
       console.log("Confirmed user ID for session creation:", confirmedUserId);
       
-      // Check if this transcript has already been saved as a session
-      const sessionTitle = `Session ${new Date().toLocaleString()}`;
+      // Check if this user already has a session with this transcript
+      const { data: existingSessions, error: checkError } = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('user_id', confirmedUserId)
+        .eq('transcript', pendingTranscript)
+        .limit(1);
+        
+      if (checkError) {
+        console.error("Error checking for existing sessions:", checkError);
+      } else if (existingSessions && existingSessions.length > 0) {
+        const existingSessionId = existingSessions[0].id;
+        console.log("Found existing session with this transcript:", existingSessionId);
+        
+        // Store session ID in localStorage
+        localStorage.setItem("currentSessionId", existingSessionId);
+        
+        // Set a timestamp for lastContentGenerated to help with dashboard refresh
+        localStorage.setItem("lastContentGenerated", new Date().toISOString());
+        
+        return existingSessionId;
+      }
       
       // Create a new session with the pending transcript
+      const sessionTitle = `Session ${new Date().toLocaleString()}`;
+      
       const { data, error } = await supabase
         .from('sessions')
         .insert([{
