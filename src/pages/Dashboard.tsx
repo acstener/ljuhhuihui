@@ -8,6 +8,7 @@ import { useAuth } from "@/App";
 import { formatDate } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useDashboardSessions } from "@/hooks/useDashboardSessions";
 
 // Define types for our data
 interface Session {
@@ -17,26 +18,21 @@ interface Session {
   transcript: string | null;
 }
 
-interface GeneratedContent {
-  id: string;
-  content: string;
-  topic: string | null;
-  created_at: string;
-}
-
 const Dashboard = () => {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState(0); // Track last refresh to prevent too frequent refreshes
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const fetchTriggeredRef = useRef(false);
-  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // Debug output for user state and location
+  // Use our new custom hook for session management
+  const { 
+    sessions, 
+    isLoading, 
+    isRefreshing, 
+    handleRefresh 
+  } = useDashboardSessions();
+
+  // Debug output for user state
   useEffect(() => {
     if (user) {
       console.log("Dashboard - User authenticated:", user.id);
@@ -48,168 +44,6 @@ const Dashboard = () => {
       console.log("Dashboard - Location state:", location.state);
     }
   }, [user, location.state]);
-  
-  // Fetch sessions from Supabase with debouncing and double-checking user auth
-  const fetchSessions = useCallback(async (forceRefetch = false) => {
-    // Skip if no user ID (not authenticated)
-    if (!user?.id) {
-      console.log("Cannot fetch sessions: No authenticated user");
-      setIsLoading(false);
-      setSessions([]);
-      return;
-    }
-    
-    // Prevent multiple refreshes within 2 seconds unless forced
-    const now = Date.now();
-    if (!forceRefetch && now - lastRefreshTime < 2000) {
-      console.log("Skipping refresh - too soon since last refresh");
-      return;
-    }
-    
-    // Skip if already refreshing
-    if (isRefreshing && !forceRefetch) {
-      console.log("Already refreshing, skipping duplicate fetch");
-      return;
-    }
-    
-    setIsLoading(true);
-    if (forceRefetch) {
-      setIsRefreshing(true);
-    }
-    
-    // Update last refresh time
-    setLastRefreshTime(now);
-    
-    try {
-      console.log("Fetching sessions for user:", user.id);
-      
-      // Double check the user session to make sure we have the current user ID
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      const confirmedUserId = currentSession?.user?.id || user.id;
-      
-      console.log("Confirmed user ID for fetching sessions:", confirmedUserId);
-      
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('user_id', confirmedUserId)
-        .order('updated_at', { ascending: false })
-        .limit(6);
-        
-      if (sessionError) {
-        console.error("Error fetching sessions:", sessionError);
-        throw sessionError;
-      }
-      
-      console.log("Fetched sessions:", sessionData?.length || 0);
-      setSessions(sessionData || []);
-      
-      // Check for sessions in the database to verify
-      if (sessionData && sessionData.length > 0) {
-        console.log("Session data sample:", sessionData[0]);
-      } else {
-        console.log("No sessions found for user");
-        
-        // If no sessions and we just came from signup/content generation
-        // let's double check for sessions after a small delay
-        if ((location.state?.fromSignup || location.state?.fromContentGeneration) && !fetchTriggeredRef.current) {
-          console.log("No sessions found but coming from signup/generation - scheduling retry");
-          if (refreshTimeoutRef.current) {
-            clearTimeout(refreshTimeoutRef.current);
-          }
-          refreshTimeoutRef.current = setTimeout(() => {
-            console.log("Retrying session fetch after delay");
-            fetchSessions(true);
-          }, 2000);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching sessions:", error);
-      toast({
-        title: "Error loading sessions",
-        description: "Could not load your recent sessions. Please try refreshing.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user, toast, isRefreshing, lastRefreshTime, location.state]);
-
-  // Clean up any scheduled refreshes on unmount
-  useEffect(() => {
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Only fetch once when component mounts or when user changes
-  useEffect(() => {
-    if (user?.id && !fetchTriggeredRef.current) {
-      console.log("Initial session fetch for user:", user.id);
-      fetchTriggeredRef.current = true;
-      fetchSessions(false);
-    }
-  }, [user?.id, fetchSessions]);
-
-  // Handle manual refresh
-  const handleRefresh = () => {
-    if (isRefreshing) return;
-    fetchTriggeredRef.current = false; // Reset the flag to allow a fresh fetch
-    fetchSessions(true);
-  };
-
-  // Check for content-generated event
-  useEffect(() => {
-    const handleContentGenerated = (event: CustomEvent<{sessionId: string, userId: string}>) => {
-      console.log("Content generated event detected:", event.detail);
-      
-      // Only refresh if the event is for the current user
-      if (user?.id && event.detail.userId === user.id) {
-        console.log("Content generated for current user, refreshing sessions");
-        // Add a small delay to ensure database has updated
-        setTimeout(() => fetchSessions(true), 1000);
-      }
-    };
-    
-    // Type assertion to work with CustomEvent
-    window.addEventListener('content-generated', handleContentGenerated as EventListener);
-    
-    return () => {
-      window.removeEventListener('content-generated', handleContentGenerated as EventListener);
-    };
-  }, [user, fetchSessions]);
-  
-  // Check for localStorage indicators that content was generated
-  useEffect(() => {
-    const lastGenerated = localStorage.getItem("lastContentGenerated");
-    
-    if (lastGenerated && user?.id) {
-      const timestamp = new Date(lastGenerated).getTime();
-      const now = new Date().getTime();
-      const fiveMinutesAgo = now - (5 * 60 * 1000); // 5 minutes in milliseconds
-      
-      // If content was generated in the last 5 minutes, refresh
-      if (timestamp > fiveMinutesAgo) {
-        console.log("Recent content generation detected, refreshing sessions");
-        fetchSessions(true);
-        
-        // Clear the lastContentGenerated flag after refreshing
-        localStorage.removeItem("lastContentGenerated");
-      }
-    }
-  }, [user?.id, fetchSessions]);
-  
-  // If coming from signup or content generation, refresh once
-  useEffect(() => {
-    if (location.state?.fromContentGeneration || location.state?.fromSignup) {
-      console.log("Coming from content generation or signup, refreshing sessions");
-      // Add small delay to allow the database to update
-      setTimeout(() => fetchSessions(true), 1000);
-    }
-  }, [location.state, fetchSessions]);
 
   const handleViewSession = (session: Session) => {
     navigate(`/session/${session.id}`, { 

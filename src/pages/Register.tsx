@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/App";
@@ -20,8 +19,15 @@ const Register = () => {
   // Check if we have a pending transcript
   const hasPendingTranscript = localStorage.getItem("pendingTranscript") !== null;
 
-  const createSessionFromPending = async (userId: string) => {
+  // Improved session creation with better error handling and logging
+  const createSessionFromPending = async (userId: string): Promise<string | null> => {
+    if (isCreatingSession) {
+      console.log("Session creation already in progress, skipping duplicate request");
+      return null;
+    }
+    
     setIsCreatingSession(true);
+    console.log("Starting session creation process for new user:", userId);
     
     try {
       const pendingTranscript = localStorage.getItem("pendingTranscript");
@@ -31,29 +37,37 @@ const Register = () => {
         return null;
       }
       
-      console.log("Creating session from pending transcript for new user:", userId);
+      // Ensure user ID is valid before proceeding
+      if (!userId || typeof userId !== 'string' || userId.length < 5) {
+        console.error("Invalid user ID for session creation:", userId);
+        throw new Error("Invalid user ID for session creation");
+      }
       
-      // Ensure we have the correct user ID before creating the session
-      // Add a small delay to make sure auth state is fully updated
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log("Creating session from pending transcript for user:", userId);
       
-      // Verify the user ID one more time
+      // Add a delay to ensure auth state has propagated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Double-check the current auth session
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const confirmedUserId = currentSession?.user?.id || userId;
       
       if (!confirmedUserId) {
-        console.error("Cannot create session: No confirmed user ID available");
+        console.error("Session creation failed: No confirmed user ID available");
         throw new Error("Authentication error: User ID not available");
       }
       
       console.log("Confirmed user ID for session creation:", confirmedUserId);
+      
+      // Check if this transcript has already been saved as a session
+      const sessionTitle = `Session ${new Date().toLocaleString()}`;
       
       // Create a new session with the pending transcript
       const { data, error } = await supabase
         .from('sessions')
         .insert([{
           user_id: confirmedUserId,
-          title: `Session ${new Date().toLocaleString()}`,
+          title: sessionTitle,
           transcript: pendingTranscript
         }])
         .select();
@@ -65,15 +79,15 @@ const Register = () => {
       
       if (data && data.length > 0) {
         const sessionId = data[0].id;
-        console.log("Created new session with ID:", sessionId);
+        console.log("Created session with ID:", sessionId);
         
-        // Store session ID in localStorage and make it available globally
+        // Store session ID in localStorage
         localStorage.setItem("currentSessionId", sessionId);
         
         // Set a timestamp for lastContentGenerated to help with dashboard refresh
         localStorage.setItem("lastContentGenerated", new Date().toISOString());
         
-        // Clear pending transcript now that we've created a session
+        // Clear pending transcript only after successful session creation
         localStorage.removeItem("pendingTranscript");
         
         // Dispatch an event to notify other components
@@ -83,6 +97,8 @@ const Register = () => {
         
         return sessionId;
       }
+      
+      return null;
     } catch (error) {
       console.error("Failed to create session from pending transcript:", error);
       toast({
@@ -90,11 +106,10 @@ const Register = () => {
         title: "Error",
         description: "Failed to save your content. Please try again.",
       });
+      return null;
     } finally {
       setIsCreatingSession(false);
     }
-    
-    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,37 +137,49 @@ const Register = () => {
       });
       
       // If the user was created successfully and we have a pending transcript,
-      // create a session with it - but with additional safety checks
+      // create a session after a short delay to ensure auth is fully established
       if (authData?.user && hasPendingTranscript) {
         console.log("New user created with ID:", authData.user.id);
         
-        // Give auth state time to propagate before creating session
-        const sessionId = await createSessionFromPending(authData.user.id);
-        
-        if (sessionId) {
-          toast({
-            title: "Content Ready",
-            description: "Your content is being generated now!",
-          });
+        // Wait a moment before trying to create the session
+        setTimeout(async () => {
+          const sessionId = await createSessionFromPending(authData.user.id);
           
-          // Use the session ID we just created for navigation
-          navigate("/generate/new", { 
-            state: { 
-              fromSignup: true,
-              sessionId: sessionId,
-              userId: authData.user.id,  // Explicitly pass the user ID
-              timestamp: Date.now()      // Add timestamp to prevent caching issues
-            }
-          });
-          return;
-        }
+          if (sessionId) {
+            toast({
+              title: "Content Ready",
+              description: "Your content is being generated now!",
+            });
+            
+            // Navigate to the appropriate page with the session ID
+            navigate("/generate/new", { 
+              state: { 
+                fromSignup: true,
+                sessionId: sessionId,
+                userId: authData.user.id,
+                timestamp: Date.now()
+              }
+            });
+          } else {
+            // If session creation failed, go to dashboard
+            navigate("/dashboard", {
+              state: {
+                fromSignup: true,
+                userId: authData.user.id,
+                updatedAt: new Date().toISOString()
+              }
+            });
+          }
+        }, 1500);
+        
+        return;
       }
       
       // If no session was created or no pending transcript, go to dashboard
       navigate("/dashboard", {
         state: {
           fromSignup: true,
-          userId: authData?.user?.id,    // Explicitly pass the user ID
+          userId: authData?.user?.id,
           updatedAt: new Date().toISOString()
         }
       });
