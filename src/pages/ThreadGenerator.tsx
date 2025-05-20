@@ -1,14 +1,16 @@
 
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ContentItem } from "@/components/thread/ContentItem";
 import { OptionsPanel } from "@/components/thread/OptionsPanel";
 import { ContentPlaceholder } from "@/components/thread/ContentPlaceholder";
 import { useThreadGenerator } from "@/hooks/use-thread-generator";
 
 const ThreadGenerator = () => {
+  const location = useLocation();
   const {
     transcript,
+    sessionId,
     tweets,
     isGenerating,
     error,
@@ -16,20 +18,29 @@ const ThreadGenerator = () => {
     handleUpdateTweet,
     handleDeleteTweet,
     handleCopyTweet,
-    handleDownloadAll
+    handleDownloadAll,
+    setSessionId
   } = useThreadGenerator();
   
   const navigate = useNavigate();
+  
+  // Get session ID from location state if available
+  useEffect(() => {
+    if (location.state?.sessionId) {
+      setSessionId(location.state.sessionId);
+      localStorage.setItem("currentSessionId", location.state.sessionId);
+    }
+  }, [location.state, setSessionId]);
   
   // Auto-generate tweets when component loads if transcript exists
   useEffect(() => {
     if (transcript && tweets.length === 0 && !isGenerating) {
       generateTweets();
     }
-  }, [transcript]);
+  }, [transcript, tweets.length, isGenerating, generateTweets]);
   
   const handleBackToTranscript = () => {
-    navigate("/transcript-editor", { state: { transcript } });
+    navigate("/transcript-editor", { state: { transcript, sessionId } });
   };
 
   return (

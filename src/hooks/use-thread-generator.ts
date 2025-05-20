@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/App";
 
 interface Tweet {
   tweet: string;
@@ -15,10 +16,12 @@ export const useThreadGenerator = () => {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [exampleTweets, setExampleTweets] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Load transcript from localStorage
+    // Load transcript and sessionId from localStorage or state
     const savedTranscript = localStorage.getItem("tweetGenerationTranscript");
     
     if (savedTranscript) {
@@ -26,6 +29,12 @@ export const useThreadGenerator = () => {
       
       // Fetch tone preferences
       fetchToneExamples();
+    }
+    
+    // Try to get session ID from localStorage
+    const savedSessionId = localStorage.getItem("currentSessionId");
+    if (savedSessionId) {
+      setSessionId(savedSessionId);
     }
   }, []);
 
@@ -78,6 +87,58 @@ export const useThreadGenerator = () => {
       
       if (data && Array.isArray(data.tweets)) {
         setTweets(data.tweets);
+        
+        // If we have a user and session ID, save tweets to Supabase
+        if (user && (sessionId || data.sessionId)) {
+          const currentSessionId = sessionId || data.sessionId;
+          
+          // If we don't have a session ID but have a transcript, create a new session
+          let activeSessionId = currentSessionId;
+          
+          if (!activeSessionId && transcript) {
+            try {
+              const { data: sessionData, error: sessionError } = await supabase
+                .from('sessions')
+                .insert({
+                  user_id: user.id,
+                  title: `Session ${new Date().toLocaleString()}`,
+                  transcript: transcript
+                })
+                .select();
+              
+              if (sessionError) throw sessionError;
+              if (sessionData && sessionData.length > 0) {
+                activeSessionId = sessionData[0].id;
+                setSessionId(activeSessionId);
+                localStorage.setItem("currentSessionId", activeSessionId);
+              }
+            } catch (err) {
+              console.error("Failed to create session:", err);
+            }
+          }
+          
+          // Save generated tweets to Supabase
+          if (activeSessionId) {
+            try {
+              const tweetsToSave = data.tweets.map((tweet: Tweet) => ({
+                user_id: user.id,
+                session_id: activeSessionId,
+                content: tweet.tweet,
+                topic: tweet.topic || null
+              }));
+              
+              const { error: insertError } = await supabase
+                .from('generated_content')
+                .insert(tweetsToSave);
+                
+              if (insertError) throw insertError;
+              
+              console.log("Saved generated content to Supabase");
+            } catch (err) {
+              console.error("Failed to save generated content:", err);
+            }
+          }
+        }
       } else if (data && data.error) {
         // Handle error response from the function
         throw new Error(`API Error: ${data.error}`);
@@ -98,19 +159,84 @@ export const useThreadGenerator = () => {
     }
   };
 
-  const handleUpdateTweet = (index: number, newText: string) => {
+  const handleUpdateTweet = async (index: number, newText: string) => {
     const updatedTweets = [...tweets];
+    const originalTweet = updatedTweets[index];
+    
     updatedTweets[index] = {
-      ...updatedTweets[index],
+      ...originalTweet,
       tweet: newText,
       edited: true
     };
     setTweets(updatedTweets);
+    
+    // If we have a user and session ID, update the tweet in Supabase
+    if (user && sessionId && tweets.length > index) {
+      try {
+        // We need to find the content ID in Supabase
+        const { data, error } = await supabase
+          .from('generated_content')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('content', originalTweet.tweet)
+          .limit(1);
+          
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const contentId = data[0].id;
+          
+          // Update the content in Supabase
+          await supabase
+            .from('generated_content')
+            .update({ 
+              content: newText,
+              is_edited: true,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', contentId);
+            
+          console.log("Updated tweet in Supabase");
+        }
+      } catch (err) {
+        console.error("Failed to update tweet in Supabase:", err);
+      }
+    }
   };
   
-  const handleDeleteTweet = (index: number) => {
+  const handleDeleteTweet = async (index: number) => {
+    const tweetToDelete = tweets[index];
     const updatedTweets = tweets.filter((_, i) => i !== index);
     setTweets(updatedTweets);
+    
+    // If we have a user and session ID, delete the tweet from Supabase
+    if (user && sessionId && tweetToDelete) {
+      try {
+        // We need to find the content ID in Supabase
+        const { data, error } = await supabase
+          .from('generated_content')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('content', tweetToDelete.tweet)
+          .limit(1);
+          
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const contentId = data[0].id;
+          
+          // Delete the content from Supabase
+          await supabase
+            .from('generated_content')
+            .delete()
+            .eq('id', contentId);
+            
+          console.log("Deleted tweet from Supabase");
+        }
+      } catch (err) {
+        console.error("Failed to delete tweet from Supabase:", err);
+      }
+    }
   };
 
   const handleCopyTweet = (tweet: string) => {
@@ -137,6 +263,7 @@ export const useThreadGenerator = () => {
 
   return {
     transcript,
+    sessionId,
     tweets,
     isGenerating,
     exampleTweets,
@@ -145,6 +272,7 @@ export const useThreadGenerator = () => {
     handleUpdateTweet,
     handleDeleteTweet,
     handleCopyTweet,
-    handleDownloadAll
+    handleDownloadAll,
+    setSessionId
   };
 };

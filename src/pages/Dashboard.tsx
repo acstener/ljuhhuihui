@@ -1,23 +1,76 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, FileText, Sliders } from "lucide-react";
+import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/App";
 import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 import { formatDate } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+// Define types for our data
+interface Session {
+  id: string;
+  title: string;
+  created_at: string;
+  transcript: string | null;
+}
+
+interface GeneratedContent {
+  id: string;
+  content: string;
+  topic: string | null;
+  created_at: string;
+}
 
 const Dashboard = () => {
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   
+  // Fetch sessions from Supabase
   useEffect(() => {
+    const fetchSessions = async () => {
+      if (!user?.id) return;
+      
+      setIsLoading(true);
+      
+      try {
+        console.log("Fetching sessions for user:", user.id);
+        const { data: sessionData, error: sessionError } = await supabase
+          .from('sessions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(6);
+          
+        if (sessionError) throw sessionError;
+        
+        console.log("Fetched sessions:", sessionData?.length || 0);
+        setSessions(sessionData || []);
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
     if (user?.id) {
-      console.log("User authenticated, fetching sessions for:", user.id);
-      // In a real implementation, we would fetch sessions from the database here
+      fetchSessions();
     }
   }, [user?.id]);
+
+  // Format the session date for display
+  const formatSessionDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: 'numeric', 
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -66,7 +119,13 @@ const Dashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {sessions.length === 0 ? (
+        {isLoading ? (
+          <Card className="col-span-full border-dashed bg-background/50">
+            <CardContent className="pt-10 pb-10 flex flex-col items-center justify-center text-center">
+              <p className="text-muted-foreground">Loading your sessions...</p>
+            </CardContent>
+          </Card>
+        ) : sessions.length === 0 ? (
           <Card className="col-span-full border-dashed bg-background/50">
             <CardContent className="pt-10 pb-10 flex flex-col items-center justify-center text-center">
               <div className="rounded-full bg-muted p-4 mb-5">
@@ -77,12 +136,6 @@ const Dashboard = () => {
                 Your recent content creation sessions will appear here
               </p>
               <div className="flex gap-3">
-                <Button variant="outline" asChild>
-                  <Link to="/transcript-editor">
-                    <FileText className="mr-2 h-4 w-4" />
-                    Input Text
-                  </Link>
-                </Button>
                 <Button asChild>
                   <Link to="/studio">
                     <Mic className="mr-2 h-4 w-4" />
@@ -93,10 +146,40 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         ) : (
-          // This section would display actual sessions if there were any
-          <p className="col-span-full text-center text-muted-foreground py-8">
-            Session history will appear here
-          </p>
+          sessions.map((session) => (
+            <Card key={session.id} className="hover:shadow-md transition-all">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-base">{session.title}</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  {formatSessionDate(session.created_at)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-2">
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {session.transcript ? (
+                    session.transcript.substring(0, 100) + (session.transcript.length > 100 ? '...' : '')
+                  ) : (
+                    <span className="italic">No transcript available</span>
+                  )}
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  asChild 
+                  className="w-full text-xs"
+                >
+                  <Link to={`/generate/new`} state={{ sessionId: session.id, transcript: session.transcript }}>
+                    Generate Content
+                    <Sparkles className="ml-2 h-3 w-3" />
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))
         )}
       </div>
       

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,8 @@ import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceOrb } from "@/components/VoiceOrb";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -26,9 +27,14 @@ const Studio = () => {
   } = useElevenConversation();
   
   const { toast } = useToast();
+  const { user } = useAuth();
   
   // Navigation
   const navigate = useNavigate();
+  
+  // Session ID for the current session
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
@@ -37,9 +43,63 @@ const Studio = () => {
   const transcriptRef = useRef(transcript);
   useEffect(() => {
     transcriptRef.current = transcript;
-  }, [transcript]);
+
+    // Auto-save transcript when it changes and we have a session ID
+    if (sessionId && user && transcript.trim()) {
+      const saveTranscript = async () => {
+        try {
+          await supabase
+            .from('sessions')
+            .update({ 
+              transcript: transcript,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', sessionId);
+        } catch (error) {
+          console.error("Failed to auto-save transcript:", error);
+        }
+      };
+      
+      // Use a debounce to avoid too many saves
+      const timeoutId = setTimeout(saveTranscript, 2000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [transcript, sessionId, user]);
   
-  const useTranscript = () => {
+  // Create a new session when starting conversation
+  useEffect(() => {
+    if (isListening && !sessionId && user) {
+      const createSession = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('sessions')
+            .insert({
+              user_id: user.id,
+              title: `Session ${new Date().toLocaleString()}`,
+              transcript: ''
+            })
+            .select();
+            
+          if (error) throw error;
+          if (data && data.length > 0) {
+            console.log("Created new session:", data[0].id);
+            setSessionId(data[0].id);
+          }
+        } catch (error) {
+          console.error("Failed to create session:", error);
+          toast({
+            variant: "destructive",
+            title: "Session Error",
+            description: "Failed to create new session. Please try again."
+          });
+        }
+      };
+      
+      createSession();
+    }
+  }, [isListening, sessionId, user, toast]);
+  
+  const useTranscript = async () => {
     if (!transcriptRef.current.trim()) {
       toast({
         variant: "destructive",
@@ -49,13 +109,62 @@ const Studio = () => {
       return;
     }
 
-    // Save transcript to localStorage to be processed
-    localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
+    setIsSaving(true);
     
-    // Navigate to the new transcript editor page
-    navigate("/generate/new", { 
-      state: { transcript: transcriptRef.current }
-    });
+    try {
+      // If we don't have a session yet, create one
+      let currentSessionId = sessionId;
+      
+      if (!currentSessionId && user) {
+        const { data, error } = await supabase
+          .from('sessions')
+          .insert({
+            user_id: user.id,
+            title: `Session ${new Date().toLocaleString()}`,
+            transcript: transcriptRef.current
+          })
+          .select();
+          
+        if (error) throw error;
+        if (data && data.length > 0) {
+          currentSessionId = data[0].id;
+          setSessionId(data[0].id);
+        }
+      } else if (currentSessionId) {
+        // Update the existing session
+        await supabase
+          .from('sessions')
+          .update({ 
+            transcript: transcriptRef.current,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentSessionId);
+      }
+      
+      // Save transcript to localStorage as a backup
+      localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
+      
+      // Navigate to generate page with session ID
+      navigate("/generate/new", { 
+        state: { 
+          transcript: transcriptRef.current,
+          sessionId: currentSessionId 
+        }
+      });
+    } catch (error) {
+      console.error("Error saving transcript:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save transcript. Using local storage instead."
+      });
+      
+      // Fallback to localStorage if Supabase fails
+      localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
+      navigate("/generate/new", { state: { transcript: transcriptRef.current } });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -87,12 +196,12 @@ const Studio = () => {
                 <h2 className="font-medium text-muted-foreground">Conversation</h2>
                 <Button 
                   onClick={useTranscript}
-                  disabled={!transcript.trim()}
+                  disabled={!transcript.trim() || isSaving}
                   variant="ghost"
                   size="sm"
                   className="text-xs hover:text-primary hover:bg-primary/5 transition-colors"
                 >
-                  Create Content
+                  {isSaving ? "Saving..." : "Create Content"}
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </div>
