@@ -99,6 +99,9 @@ const Studio = () => {
     }
   }, [isListening, sessionId, user, toast]);
   
+  // Format transcript for display
+  const formattedTranscript = transcript.replace(/^AI:/gm, "Studio:");
+  
   const useTranscript = async () => {
     if (!transcriptRef.current.trim()) {
       toast({
@@ -211,19 +214,19 @@ const Studio = () => {
           />
         </div>
         
-        {/* Improved Transcript Display */}
-        <div className="w-full">
+        {/* More subtle Transcript Display */}
+        <div className="w-full max-w-2xl mx-auto">
           <Card className="rounded-xl overflow-hidden border-0 bg-transparent">
             <CardContent className="p-0">
-              <ScrollArea className="max-h-[320px]">
+              <ScrollArea className="max-h-[280px]">
                 <div className="p-2">
                   {transcript ? (
-                    <div className="text-base leading-relaxed font-normal text-foreground whitespace-pre-wrap">
-                      {transcript}
+                    <div className="text-sm leading-relaxed font-normal text-foreground/90 whitespace-pre-wrap">
+                      {formattedTranscript}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-32 text-center">
-                      <p className="text-muted-foreground font-normal">
+                    <div className="flex flex-col items-center justify-center h-28 text-center">
+                      <p className="text-muted-foreground/70 text-sm font-normal">
                         {isListening 
                           ? "Listening... speak clearly" 
                           : "Start a conversation to see the transcript here"}
@@ -237,13 +240,13 @@ const Studio = () => {
           
           {/* Text Input Field */}
           {isConnected && (
-            <div className="mt-6 w-full">
+            <div className="mt-4 w-full">
               <div className="flex gap-2 items-end">
                 <Textarea
                   value={userInput}
                   onChange={(e) => setUserInput(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 resize-none bg-background border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg"
+                  className="flex-1 resize-none bg-background border-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm"
                 />
                 <Button 
                   onClick={sendTextMessage} 
