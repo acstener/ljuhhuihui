@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Webcam, Slash, CheckCircle, XCircle, AlertCircle, Video, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,10 +21,19 @@ export const WebcamCapture = ({
   className
 }: WebcamCaptureProps) => {
   const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  
+  // Use a state to store the video element ref instead of useRef
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  // Callback ref function that will be passed to the video element
+  const videoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node) {
+      console.log("WebcamCapture: Video element mounted", node);
+      setVideoElement(node);
+    }
+  }, []);
   
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +42,7 @@ export const WebcamCapture = ({
   const [timerInterval, setTimerInterval] = useState<number | null>(null);
   const [isBrowserSupported, setIsBrowserSupported] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [videoElementReady, setVideoElementReady] = useState(false);
+  const [initializationAttempts, setInitializationAttempts] = useState(0);
   
   const sizeClasses = {
     sm: "h-16 w-16",
@@ -59,22 +68,14 @@ export const WebcamCapture = ({
     }
   }, [toast]);
 
-  // Ensure the video element is ready before accessing it
+  // Initialize webcam whenever the video element is set or changes
   useEffect(() => {
-    // Add a small delay to ensure DOM is fully rendered
-    const timer = setTimeout(() => {
-      setVideoElementReady(true);
-      console.log("WebcamCapture: Video element ready check", !!videoRef.current);
-    }, 100);
+    if (!isBrowserSupported || !videoElement) {
+      console.log("WebcamCapture: Skipping initialization - browser support:", isBrowserSupported, "video element:", !!videoElement);
+      return;
+    }
     
-    return () => clearTimeout(timer);
-  }, []);
-  
-  // Initialize webcam when video element is ready
-  useEffect(() => {
-    if (!isBrowserSupported || !videoElementReady) return;
-    
-    console.log("WebcamCapture: Initializing webcam");
+    console.log("WebcamCapture: Initializing webcam with video element", videoElement);
     let stream: MediaStream | null = null;
     
     const initWebcam = async () => {
@@ -89,24 +90,27 @@ export const WebcamCapture = ({
         
         console.log("WebcamCapture: Camera access granted", stream);
         
-        if (videoRef.current) {
-          console.log("WebcamCapture: Setting video source");
-          videoRef.current.srcObject = stream;
+        // Direct DOM check - make sure the element is still in the document
+        if (videoElement && document.body.contains(videoElement)) {
+          console.log("WebcamCapture: Setting video source on verified element");
+          // Set both the srcObject and the ref
+          videoElement.srcObject = stream;
           streamRef.current = stream;
           setHasPermission(true);
+          setInitializationAttempts(0); // Reset attempts on success
         } else {
-          console.error("WebcamCapture: Video ref is null");
-          setErrorMessage("Video element not available");
-          toast({
-            title: "Camera Error",
-            description: "Could not initialize video element. Please refresh the page.",
-            variant: "destructive"
-          });
+          console.error("WebcamCapture: Video element is not in the document");
+          setErrorMessage("Video element not connected to DOM");
+          throw new Error("Video element not connected to DOM");
         }
       } catch (err) {
         console.error("WebcamCapture: Error accessing webcam:", err);
         setHasPermission(false);
         setErrorMessage(err instanceof Error ? err.message : "Unknown error accessing camera");
+        
+        // Increment attempts counter
+        setInitializationAttempts(prev => prev + 1);
+        
         toast({
           title: "Camera access denied",
           description: "Please allow camera access to record video.",
@@ -124,16 +128,16 @@ export const WebcamCapture = ({
       console.log("WebcamCapture: Cleaning up");
       if (stream) {
         stream.getTracks().forEach(track => {
-          console.log("WebcamCapture: Stopping track", track.kind);
+          console.log(`WebcamCapture: Stopping track ${track.kind}`);
           track.stop();
         });
       }
     };
-  }, [isBrowserSupported, toast, videoElementReady]);
+  }, [isBrowserSupported, toast, videoElement, initializationAttempts]);
   
   // Start/stop recording based on isRecording prop
   useEffect(() => {
-    if (!hasPermission || !streamRef.current) return;
+    if (!hasPermission || !streamRef.current || !videoElement) return;
     
     console.log("WebcamCapture: Recording state changed", isRecording);
     
@@ -142,7 +146,7 @@ export const WebcamCapture = ({
     } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       stopRecording();
     }
-  }, [isRecording, hasPermission]);
+  }, [isRecording, hasPermission, videoElement]);
   
   // Recording timer
   useEffect(() => {
@@ -159,6 +163,20 @@ export const WebcamCapture = ({
       setTimerInterval(null);
     }
   }, [isRecording]);
+  
+  // Auto retry if initialization fails
+  useEffect(() => {
+    if (initializationAttempts > 0 && initializationAttempts < 3) {
+      // Try again after a delay, but only up to 3 attempts
+      const retryTimeout = setTimeout(() => {
+        console.log(`WebcamCapture: Auto-retrying initialization (attempt ${initializationAttempts + 1})`);
+        // Just bumping this will trigger the initialization effect
+        setInitializationAttempts(prev => prev + 1);
+      }, 1000);
+      
+      return () => clearTimeout(retryTimeout);
+    }
+  }, [initializationAttempts]);
   
   const startRecording = () => {
     if (!streamRef.current) {
@@ -235,10 +253,10 @@ export const WebcamCapture = ({
     console.log("WebcamCapture: Resetting capture");
     setPreviewUrl(null);
     setErrorMessage(null);
-    if (videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
+    if (videoElement && streamRef.current) {
+      videoElement.srcObject = streamRef.current;
     } else {
-      console.warn("WebcamCapture: Can't reset capture, missing video ref or stream");
+      console.warn("WebcamCapture: Can't reset capture, missing video element or stream");
     }
   };
   
@@ -260,12 +278,12 @@ export const WebcamCapture = ({
       });
       
       console.log("WebcamCapture: Camera access granted on manual request");
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (videoElement) {
+        videoElement.srcObject = stream;
         streamRef.current = stream;
         setHasPermission(true);
       } else {
-        console.error("WebcamCapture: Video ref is null on manual request");
+        console.error("WebcamCapture: Video element is null on manual request");
       }
     } catch (err) {
       console.error("WebcamCapture: Error accessing webcam on manual request:", err);
@@ -386,7 +404,9 @@ export const WebcamCapture = ({
           ? "Preview" 
           : isRecording 
             ? "Recording..." 
-            : "Camera ready"}
+            : hasPermission === true
+              ? "Camera ready"
+              : "Waiting for camera..."}
       </p>
       
       {/* Error message */}

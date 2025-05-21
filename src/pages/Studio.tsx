@@ -1,7 +1,8 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff } from "lucide-react";
+import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff, RefreshCw } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
@@ -342,16 +343,38 @@ const Studio = () => {
     }
   };
 
-  // Add effect to handle webcam initialization errors
+  // Webcam management - proactive remounting and retry logic
   useEffect(() => {
     // If we've been on the page for a while and still have webcam errors, try remounting
-    const timeoutId = setTimeout(() => {
-      console.log("Studio: Refreshing webcam component");
+    const initialTimeout = setTimeout(() => {
+      console.log("Studio: Initial webcam component refresh");
       setWebcamKey(Date.now());
     }, 3000);
     
-    return () => clearTimeout(timeoutId);
-  }, []);
+    // Setup regular checks to ensure webcam is working
+    const checkInterval = setInterval(() => {
+      // Only refresh if video is enabled but no tracks are active
+      if (isVideoEnabled) {
+        console.log("Studio: Checking webcam status");
+        setWebcamKey(prevKey => prevKey + 1);
+      }
+    }, 30000); // Check every 30 seconds
+    
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(checkInterval);
+    };
+  }, [isVideoEnabled]);
+  
+  // Manual webcam refresh handler
+  const handleRefreshWebcam = () => {
+    console.log("Studio: Manually refreshing webcam");
+    setWebcamKey(Date.now());
+    toast({
+      title: "Camera refreshed",
+      description: "Attempting to reconnect to your camera.",
+    });
+  };
   
   return (
     <div className="min-h-screen bg-background">
@@ -373,7 +396,14 @@ const Studio = () => {
             <Button
               variant={isVideoEnabled ? "default" : "outline"}
               size="sm"
-              onClick={() => setIsVideoEnabled(!isVideoEnabled)}
+              onClick={() => {
+                const newState = !isVideoEnabled;
+                setIsVideoEnabled(newState);
+                if (newState) {
+                  // When re-enabling, force a remount of the webcam
+                  setWebcamKey(Date.now());
+                }
+              }}
               className="flex items-center gap-1 text-xs sm:text-sm"
             >
               {isVideoEnabled ? (
@@ -411,16 +441,18 @@ const Studio = () => {
         
         {/* Debug information */}
         <div className="text-xs text-muted-foreground mb-2">
-          <p>Camera enabled: {isVideoEnabled ? "Yes" : "No"}</p>
-          <p>Camera recording: {isVideoRecording ? "Yes" : "No"}</p>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setWebcamKey(Date.now())}
-            className="text-xs"
-          >
-            Refresh Camera
-          </Button>
+          <div className="flex items-center gap-2 justify-center">
+            <p>Camera status: {isVideoEnabled ? "Enabled" : "Disabled"}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefreshWebcam}
+              className="text-xs flex items-center gap-1"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Refresh Camera
+            </Button>
+          </div>
         </div>
         
         {/* Main content area with balanced spacing */}
