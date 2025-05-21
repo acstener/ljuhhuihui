@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Link as LinkIcon, ArrowRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/App";
 
 const UploadVideo = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -16,6 +18,7 @@ const UploadVideo = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -45,7 +48,7 @@ const UploadVideo = () => {
     }
   };
 
-  const handleYoutubeSubmit = (e: React.FormEvent) => {
+  const handleYoutubeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!youtubeUrl.trim()) {
@@ -68,10 +71,70 @@ const UploadVideo = () => {
       return;
     }
     
-    simulateUpload();
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please log in to upload videos",
+      });
+      return;
+    }
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      // Create a new session with YouTube URL
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert({
+          user_id: user.id,
+          title: `YouTube Video ${new Date().toLocaleString()}`,
+          video_url: youtubeUrl,
+        })
+        .select();
+        
+      if (error) throw error;
+      
+      // Simulate progress for better UX
+      const interval = setInterval(() => {
+        setUploadProgress((prev) => {
+          const newProgress = prev + 5;
+          if (newProgress >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, 200);
+      
+      // Clear interval and navigate after completion
+      setTimeout(() => {
+        clearInterval(interval);
+        setIsUploading(false);
+        toast({
+          title: "YouTube video saved",
+          description: "Your YouTube video has been linked to your account",
+        });
+        
+        if (data && data[0]) {
+          navigate(`/dashboard`);
+        } else {
+          navigate("/dashboard");
+        }
+      }, 2000);
+    } catch (err) {
+      console.error("Error saving YouTube URL:", err);
+      setIsUploading(false);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Failed to save YouTube URL",
+      });
+    }
   };
 
-  const handleFileUpload = () => {
+  const handleFileUpload = async () => {
     if (!file) {
       toast({
         variant: "destructive",
@@ -81,34 +144,109 @@ const UploadVideo = () => {
       return;
     }
     
-    simulateUpload();
-  };
-
-  // Simulate an upload process for the MVP
-  const simulateUpload = () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please log in to upload videos",
+      });
+      return;
+    }
+    
     setIsUploading(true);
     setUploadProgress(0);
     
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        const newProgress = prev + 5;
-        
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsUploading(false);
-            toast({
-              title: "Upload complete",
-              description: "Your video is now processing",
-            });
-            navigate("/dashboard");
-          }, 500);
-          return 100;
-        }
-        
-        return newProgress;
+    try {
+      // Create a unique file name
+      const fileName = `${Date.now()}_${file.name}`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      // Upload the file to Supabase storage
+      const { error: uploadError, data } = await supabase.storage
+        .from('videos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          onUploadProgress: (event) => {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(progress);
+          }
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(filePath);
+      
+      if (!publicUrlData) throw new Error("Failed to get public URL");
+      
+      // Get video dimensions and duration before saving
+      const videoDimensions = await getVideoDimensions(file);
+      const videoDuration = await getVideoDuration(file);
+      
+      // Save to sessions table
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .insert({
+          user_id: user.id,
+          title: `Uploaded Video ${new Date().toLocaleString()}`,
+          video_url: publicUrlData.publicUrl,
+          video_dimensions: videoDimensions,
+          video_duration: Math.round(videoDuration),
+        });
+      
+      if (sessionError) throw sessionError;
+      
+      toast({
+        title: "Upload complete",
+        description: "Your video has been uploaded successfully",
       });
-    }, 200);
+      
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Error uploading video:", err);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Failed to upload video",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  // Helper functions to get video metadata
+  const getVideoDuration = (blob: Blob): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      
+      video.src = URL.createObjectURL(blob);
+    });
+  };
+  
+  const getVideoDimensions = (blob: Blob): Promise<{width: number, height: number}> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve({
+          width: video.videoWidth,
+          height: video.videoHeight
+        });
+      };
+      
+      video.src = URL.createObjectURL(blob);
+    });
   };
 
   return (
