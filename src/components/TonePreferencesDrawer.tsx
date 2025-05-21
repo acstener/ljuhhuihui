@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash, Save } from "lucide-react";
+import { Plus, Trash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sonner } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,10 +89,11 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
 
       if (error) throw error;
       
-      // Use type assertion to handle the data safely
+      // Properly handle data and type casting
       if (data) {
-        // Cast data to the correct type
-        setTonePreferences(data as TonePreference[]);
+        // Type assertion with safety check
+        const validPreferences = Array.isArray(data) ? data as TonePreference[] : [];
+        setTonePreferences(validPreferences);
       }
     } catch (error: any) {
       console.error("Error fetching tone preferences:", error.message);
@@ -143,15 +144,17 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
       // Filter out empty tweets
       const nonEmptyTweets = values.exampleTweets.filter(tweet => tweet.trim() !== "");
       
-      // Use the correct type for insert
-      const insertData: Database["public"]["Tables"]["tone_preferences"]["Insert"] = {
+      // Create a properly typed object for insert
+      const insertData = {
         user_id: user.id,
         name: values.name,
         description: values.description,
         example_tweets: nonEmptyTweets,
-      };
+      } as Database["public"]["Tables"]["tone_preferences"]["Insert"];
 
-      const { error } = await supabase.from("tone_preferences").insert(insertData);
+      const { error } = await supabase
+        .from("tone_preferences")
+        .insert(insertData);
 
       if (error) throw error;
 
@@ -175,11 +178,11 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
 
   const deleteTonePreference = async (id: string) => {
     try {
-      // Converting id parameter type to match what the query expects
+      // Use type safe approach for delete operation
       const { error } = await supabase
         .from("tone_preferences")
         .delete()
-        .eq("id", id as unknown as Database["public"]["Tables"]["tone_preferences"]["Row"]["id"]);
+        .eq("id", id as unknown as string);  // Cast to string to fix type issue
 
       if (error) throw error;
 

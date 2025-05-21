@@ -23,4 +23,10 @@ interface Session {
   video_dimensions: { width: number, height: number } | null;
 }
 
+// Type for Supabase Response
+interface SupabaseResponseWithId {
+  id: string;
+  [key: string]: any;
+}
+
 // Add any other global type definitions here

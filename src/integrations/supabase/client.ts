@@ -13,7 +13,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     storageKey: 'supabase.auth.token',
-    storage: localStorage,
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'implicit'
@@ -30,8 +29,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   db: {
     schema: 'public'
-  },
-  storage: {
-    retryIntervals: [1000, 3000, 5000]
   }
 });
