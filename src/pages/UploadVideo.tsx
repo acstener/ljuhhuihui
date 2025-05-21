@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Link as LinkIcon, ArrowRight } from "lucide-react";
+import { Upload, Link as LinkIcon, ArrowRight, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
 
@@ -15,9 +16,32 @@ const UploadVideo = () => {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [authCheckPassed, setAuthCheckPassed] = useState<boolean | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Check authentication status on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const isAuthenticated = !!data.session;
+        setAuthCheckPassed(isAuthenticated);
+        
+        if (!isAuthenticated) {
+          console.warn("No active session found in UploadVideo component");
+        } else {
+          console.log("Authentication verified in UploadVideo component");
+        }
+      } catch (err) {
+        console.error("Error checking authentication:", err);
+        setAuthCheckPassed(false);
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -143,6 +167,17 @@ const UploadVideo = () => {
       return;
     }
     
+    // Verify authentication again before upload
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Your session has expired. Please log in again.",
+      });
+      return;
+    }
+    
     if (!user) {
       toast({
         variant: "destructive",
@@ -156,6 +191,13 @@ const UploadVideo = () => {
     setUploadProgress(0);
     
     try {
+      console.log("Starting file upload process:", {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        userId: user.id
+      });
+      
       // Create a unique file name
       const fileName = `${Date.now()}_${file.name}`;
       const filePath = `${user.id}/${fileName}`;
@@ -165,29 +207,50 @@ const UploadVideo = () => {
         setUploadProgress(Math.round(progress * 100));
       };
       
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 95) return prev;
+          return prev + 5;
+        });
+      }, 500);
+      
       // Upload the file to Supabase storage
-      const { error: uploadError, data } = await supabase.storage
+      console.log("Uploading to path:", filePath);
+      const uploadResult = await supabase.storage
         .from('videos')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
         });
       
-      if (uploadError) throw uploadError;
+      clearInterval(progressInterval);
+      
+      if (uploadResult.error) {
+        console.error("Storage upload error:", uploadResult.error);
+        throw uploadResult.error;
+      }
+      
+      console.log("Upload successful:", uploadResult.data);
+      setUploadProgress(100);
       
       // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('videos')
         .getPublicUrl(filePath);
       
-      if (!publicUrlData) throw new Error("Failed to get public URL");
+      if (!publicUrlData) {
+        throw new Error("Failed to get public URL");
+      }
+      
+      console.log("Generated public URL:", publicUrlData.publicUrl);
       
       // Get video dimensions and duration before saving
       const videoDimensions = await getVideoDimensions(file);
       const videoDuration = await getVideoDuration(file);
       
       // Save to sessions table
-      const { error: sessionError } = await supabase
+      const createSessionResult = await supabase
         .from('sessions')
         .insert({
           user_id: user.id,
@@ -195,9 +258,15 @@ const UploadVideo = () => {
           video_url: publicUrlData.publicUrl,
           video_dimensions: videoDimensions,
           video_duration: Math.round(videoDuration),
-        });
+        })
+        .select();
       
-      if (sessionError) throw sessionError;
+      if (createSessionResult.error) {
+        console.error("Session creation error:", createSessionResult.error);
+        throw createSessionResult.error;
+      }
+      
+      console.log("Session created successfully:", createSessionResult.data);
       
       toast({
         title: "Upload complete",
@@ -210,7 +279,9 @@ const UploadVideo = () => {
       toast({
         variant: "destructive",
         title: "Upload failed",
-        description: err instanceof Error ? err.message : "Failed to upload video",
+        description: err instanceof Error 
+          ? `Upload failed: ${err.message}` 
+          : "Failed to upload video. Please try again.",
       });
     } finally {
       setIsUploading(false);
@@ -257,6 +328,28 @@ const UploadVideo = () => {
           Upload a video file or paste a YouTube URL to get started
         </p>
       </div>
+      
+      {/* Authentication warning */}
+      {authCheckPassed === false && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4 flex items-start">
+          <AlertTriangle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-medium">Authentication Issue Detected</h3>
+            <p className="text-sm mt-1">
+              You appear to be logged in, but we couldn't verify your session. 
+              This may cause upload problems. Please try refreshing the page or logging out and back in.
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2"
+              onClick={() => window.location.reload()}
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      )}
       
       <Tabs defaultValue="file">
         <TabsList className="grid w-full grid-cols-2">

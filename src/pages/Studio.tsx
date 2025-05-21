@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff, RefreshCw } from "lucide-react";
+import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff, RefreshCw, BugPlay } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
@@ -419,6 +419,281 @@ const Studio = () => {
     }
   };
 
+  // Function to test authentication and storage permissions
+  const testAuthAndStorage = async () => {
+    try {
+      // 1. Check current auth status
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session check error:", sessionError);
+        toast({
+          variant: "destructive",
+          title: "Auth Error",
+          description: `Session check failed: ${sessionError.message}`
+        });
+        return;
+      }
+      
+      console.log("Current session:", sessionData.session);
+      
+      if (!sessionData.session) {
+        console.error("No active session found");
+        toast({
+          variant: "destructive",
+          title: "Auth Error",
+          description: "No active session found. Please log in again."
+        });
+        return;
+      }
+      
+      // 2. Try minimal test upload
+      const testBlob = new Blob(["test content"], { type: "text/plain" });
+      const testFilePath = `${sessionData.session.user.id}/test_${Date.now()}.txt`;
+      
+      console.log("Attempting test upload with:", {
+        user: sessionData.session.user,
+        path: testFilePath,
+        bucket: 'videos'
+      });
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(testFilePath, testBlob, {
+          cacheControl: '3600',
+          upsert: true
+        });
+      
+      if (uploadError) {
+        console.error("Test upload failed:", uploadError);
+        toast({
+          variant: "destructive",
+          title: "Storage Error",
+          description: `Test upload failed: ${uploadError.message}`
+        });
+        return;
+      }
+      
+      console.log("Test upload successful:", uploadData);
+      toast({
+        title: "Test Successful",
+        description: "Storage upload test successful!"
+      });
+      
+    } catch (err) {
+      console.error("Storage test error:", err);
+      toast({
+        variant: "destructive",
+        title: "Test Error",
+        description: err instanceof Error ? err.message : "Unknown error"
+      });
+    }
+  };
+
+  // Enhanced uploadVideoToSupabase function with better error handling
+  const uploadVideoToSupabase = async (blob: Blob, sid: string) => {
+    if (!user) {
+      console.error("No user object available for upload");
+      toast({
+        variant: "destructive",
+        title: "Authentication Error",
+        description: "You must be logged in to upload videos."
+      });
+      return;
+    }
+    
+    setIsVideoUploading(true);
+    console.log("Starting video upload for session:", sid);
+    console.log("Current user:", user);
+    
+    try {
+      // Verify we have a valid session before uploading
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        throw new Error("No active session found. Please log in again.");
+      }
+      
+      console.log("Verified active session:", sessionData.session.user.id);
+      
+      const fileName = `${sid}_${Date.now()}.webm`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      console.log("Uploading file:", {
+        path: filePath, 
+        size: blob.size, 
+        type: blob.type
+      });
+      
+      // Get video dimensions before uploading
+      const videoDimensions = await getVideoDimensions(blob);
+      
+      // Upload video to storage with detailed logging
+      const uploadResult = await supabase.storage
+        .from('videos')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'video/webm'
+        });
+      
+      if (uploadResult.error) {
+        console.error("Storage upload error:", uploadResult.error);
+        throw uploadResult.error;
+      }
+      
+      console.log("Upload successful:", uploadResult.data);
+      
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(filePath);
+      
+      if (!publicUrlData) {
+        throw new Error("Failed to get public URL");
+      }
+      
+      console.log("Generated public URL:", publicUrlData.publicUrl);
+      
+      // Update session with video URL
+      const updateResult = await supabase
+        .from('sessions')
+        .update({ 
+          video_url: publicUrlData.publicUrl,
+          video_duration: Math.round(await getVideoDuration(blob)),
+          video_dimensions: videoDimensions
+        })
+        .eq('id', sid);
+      
+      if (updateResult.error) {
+        console.error("Session update error:", updateResult.error);
+        throw updateResult.error;
+      }
+      
+      console.log("Session updated successfully");
+      
+      toast({
+        title: "Video saved",
+        description: "Your video has been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Error uploading video:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload Error",
+        description: error instanceof Error 
+          ? `Upload failed: ${error.message}` 
+          : "Failed to upload video. Please try again."
+      });
+    } finally {
+      setIsVideoUploading(false);
+    }
+  };
+  
+  // Helper functions to get video metadata
+  const getVideoDuration = (blob: Blob): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      
+      video.src = URL.createObjectURL(blob);
+    });
+  };
+  
+  const getVideoDimensions = (blob: Blob): Promise<{width: number, height: number}> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve({
+          width: video.videoWidth,
+          height: video.videoHeight
+        });
+      };
+      
+      video.src = URL.createObjectURL(blob);
+    });
+  };
+  
+  const useTranscript = async () => {
+    if (!transcriptRef.current.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Empty Transcript",
+        description: "Please have a conversation first or enter some content."
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      // If we don't have a session yet, create one
+      let currentSessionId = sessionId;
+      
+      if (!currentSessionId && user) {
+        const { data, error } = await supabase
+          .from('sessions')
+          .insert({
+            user_id: user.id,
+            title: `Session ${new Date().toLocaleString()}`,
+            transcript: transcriptRef.current
+          })
+          .select();
+          
+        if (error) throw error;
+        if (data && data.length > 0) {
+          currentSessionId = data[0].id;
+          setSessionId(data[0].id);
+        }
+      } else if (currentSessionId) {
+        // Update the existing session
+        await supabase
+          .from('sessions')
+          .update({ 
+            transcript: transcriptRef.current,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentSessionId);
+      }
+      
+      // Save transcript to localStorage for direct routing to generate page
+      localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
+      
+      // Also set a default style if none exists (simplified flow without transcript editor)
+      if (!localStorage.getItem("tweetGenerationStyle")) {
+        localStorage.setItem("tweetGenerationStyle", "my-voice");
+      }
+      
+      // Navigate directly to generate page with session ID
+      navigate("/generate/new", { 
+        state: { 
+          transcript: transcriptRef.current,
+          sessionId: currentSessionId 
+        }
+      });
+    } catch (error) {
+      console.error("Error saving transcript:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save transcript. Using local storage instead."
+      });
+      
+      // Fallback to localStorage if Supabase fails
+      localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
+      navigate("/generate/new", { state: { transcript: transcriptRef.current } });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Content container with proper spacing */}
@@ -482,7 +757,7 @@ const Studio = () => {
           </p>
         </div>
         
-        {/* Debug information */}
+        {/* Debug button (only in development) */}
         <div className="text-xs text-muted-foreground mb-2">
           <div className="flex items-center gap-2 justify-center">
             <p>Camera status: {isVideoEnabled ? (isWebcamWorking ? "Ready" : "Connecting...") : "Disabled"}</p>
@@ -498,6 +773,17 @@ const Studio = () => {
             >
               <RefreshCw className={cn("h-3 w-3", isRefreshingWebcam && "animate-spin")} />
               {isRefreshingWebcam ? "Refreshing..." : "Refresh Camera"}
+            </Button>
+            
+            {/* Debug button for testing authentication and storage */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={testAuthAndStorage}
+              className="text-xs flex items-center gap-1 ml-2"
+            >
+              <BugPlay className="h-3 w-3" />
+              Test Storage
             </Button>
           </div>
         </div>

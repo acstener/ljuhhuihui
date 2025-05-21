@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -15,7 +14,6 @@ import {
   useLocation,
   Outlet,
 } from "react-router-dom";
-import { createClient } from "@supabase/supabase-js";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import Login from "@/pages/Login";
@@ -35,6 +33,7 @@ interface AuthContextType {
   register: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,22 +47,72 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Function to refresh the session
+  const refreshSession = async () => {
+    try {
+      console.log("Manually refreshing session...");
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error("Session refresh error:", error);
+        return;
+      }
+      
+      if (data.session) {
+        console.log("Session refreshed successfully:", data.session.user.id);
+        setSession(data.session);
+        setUser(data.session.user);
+      } else {
+        console.warn("No session returned after refresh");
+      }
+    } catch (err) {
+      console.error("Error refreshing session:", err);
+    }
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       setIsLoading(true);
       
       try {
-        // Get the current session
-        const { data: { session } } = await supabase.auth.getSession();
+        // First set up the auth state change listener to catch any events
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+          console.log("Auth state changed:", event, newSession?.user?.id);
+          
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+          
+          // When a new user signs in, save the user ID to localStorage
+          if (event === 'SIGNED_IN' && newSession?.user) {
+            console.log("User signed in, updating localStorage");
+            localStorage.setItem("currentUserId", newSession.user.id);
+            localStorage.setItem("authStateChanged", new Date().toISOString());
+          } else if (event === 'SIGNED_OUT') {
+            console.log("User signed out, cleaning up localStorage");
+            localStorage.removeItem("currentUserId");
+            localStorage.removeItem("currentSessionId");
+            localStorage.removeItem("supabase-auth");
+          }
+        });
         
-        if (session) {
-          console.log("Auth initialized with user:", session.user.id);
+        // Now get the current session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (currentSession) {
+          console.log("Auth initialized with existing session:", currentSession.user.id);
+          setSession(currentSession);
+          setUser(currentSession.user);
+          localStorage.setItem("currentUserId", currentSession.user.id);
         } else {
           console.log("Auth initialized without a user session");
+          setSession(null);
+          setUser(null);
         }
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        // Return cleanup function
+        return () => {
+          subscription.unsubscribe();
+        };
       } catch (error) {
         console.error("Error initializing auth:", error);
       } finally {
@@ -137,6 +186,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Clean up user data first
     localStorage.removeItem("currentUserId");
     localStorage.removeItem("currentSessionId");
+    localStorage.removeItem("supabase-auth");
     
     await supabase.auth.signOut();
     setSession(null);
@@ -150,6 +200,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     isLoading,
+    refreshSession // Add the refreshSession function to the context
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
