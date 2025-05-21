@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +10,9 @@ interface Session {
   title: string;
   created_at: string;
   transcript: string | null;
+  video_url: string | null;
+  video_duration: number | null;
+  video_dimensions: { width: number, height: number } | null;
 }
 
 export function useDashboardSessions() {
