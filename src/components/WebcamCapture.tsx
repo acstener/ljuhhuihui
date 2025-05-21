@@ -25,7 +25,7 @@ export const WebcamCapture = ({
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   // Track media stream separately from video element
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -149,6 +149,7 @@ export const WebcamCapture = ({
     }
     
     console.log("WebcamCapture: Both video element and media stream are available, connecting");
+    console.log("WebcamCapture: Video element mounted", videoRef.current, mediaStream);
     
     // Check if the video element is still in the document
     if (document.body.contains(videoRef.current)) {
@@ -238,7 +239,7 @@ export const WebcamCapture = ({
     } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       stopRecording();
     }
-  }, [isRecording, hasPermission, videoRef, mediaStream]);
+  }, [isRecording, hasPermission, mediaStream]);
   
   // Recording timer
   useEffect(() => {

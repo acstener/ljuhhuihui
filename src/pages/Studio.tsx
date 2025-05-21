@@ -43,10 +43,13 @@ const Studio = () => {
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [webcamKey, setWebcamKey] = useState(Date.now());
   const [isWebcamWorking, setIsWebcamWorking] = useState(false);
   const lastRefreshTimeRef = useRef(Date.now());
   const webcamRefreshTimeoutRef = useRef<number | null>(null);
+  const uploadRetryCount = useRef(0);
+  const maxUploadRetries = 3;
   
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
@@ -339,7 +342,7 @@ const Studio = () => {
     }
   };
 
-  // Enhanced uploadVideoToSupabase function with better error handling
+  // Enhanced uploadVideoToSupabase function with better error handling and retry logic
   const uploadVideoToSupabase = async (blob: Blob, sid: string) => {
     if (!user) {
       console.error("No user object available for upload");
@@ -351,27 +354,35 @@ const Studio = () => {
       return;
     }
     
+    if (blob.size > 100 * 1024 * 1024) {
+      console.error("Video file too large:", blob.size);
+      toast({
+        variant: "destructive",
+        title: "File Too Large",
+        description: "Video must be less than 100MB"
+      });
+      return;
+    }
+    
     setIsVideoUploading(true);
+    setUploadProgress(0);
     console.log("Starting video upload for session:", sid);
     console.log("Current user:", user);
     
     try {
-      // Verify we have a valid session before uploading
+      // Ensure we have a fresh session token before attempting upload
+      console.log("Refreshing session before upload...");
+      await refreshSession();
+      
+      // Verify we have a valid session after refreshing
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
-        // Try to refresh the session
-        await refreshSession();
-        
-        // Check if refresh worked
-        const { data: refreshedData } = await supabase.auth.getSession();
-        if (!refreshedData.session) {
-          throw new Error("No active session found. Please log in again.");
-        }
-        console.log("Session refreshed successfully for upload");
+        throw new Error("No active session found after refresh. Please log in again.");
       }
       
-      console.log("Verified active session:", sessionData.session?.user.id);
+      console.log("Session refreshed successfully for upload, user:", sessionData.session.user.id);
       
+      // Create a valid filename
       const fileName = `${sid}_${Date.now()}.webm`;
       const filePath = `${user.id}/${fileName}`;
       
@@ -381,8 +392,25 @@ const Studio = () => {
         type: blob.type
       });
       
+      // Show progress updates
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 95) return prev;
+          return prev + 5;
+        });
+      }, 500);
+      
+      // Convert the blob to an ArrayBuffer if it's not already
+      const fileBuffer = await blob.arrayBuffer();
+      
       // Get video dimensions before uploading
       const videoDimensions = await getVideoDimensions(blob);
+      const videoDuration = await getVideoDuration(blob);
+      
+      console.log("Video metadata:", { 
+        dimensions: videoDimensions,
+        duration: videoDuration
+      });
       
       // Upload video to storage with detailed logging
       const uploadResult = await supabase.storage
@@ -393,19 +421,54 @@ const Studio = () => {
           contentType: 'video/webm'
         });
       
+      clearInterval(progressInterval);
+      
       if (uploadResult.error) {
         console.error("Storage upload error:", uploadResult.error);
-        throw uploadResult.error;
+        
+        // If we get a token expiration error, try refreshing and retrying once
+        if (uploadResult.error.message.includes("JWT") || 
+            uploadResult.error.message.includes("token") ||
+            uploadResult.error.message.includes("auth")) {
+          
+          if (uploadRetryCount.current < maxUploadRetries) {
+            uploadRetryCount.current++;
+            console.log(`Retrying upload (attempt ${uploadRetryCount.current} of ${maxUploadRetries})...`);
+            
+            await refreshSession();
+            setUploadProgress(0);
+            
+            // Try upload again
+            const retryResult = await supabase.storage
+              .from('videos')
+              .upload(filePath, blob, {
+                cacheControl: '3600',
+                upsert: true,
+                contentType: 'video/webm'
+              });
+              
+            if (retryResult.error) {
+              throw retryResult.error;
+            }
+            
+            console.log("Retry successful:", retryResult.data);
+          } else {
+            throw uploadResult.error;
+          }
+        } else {
+          throw uploadResult.error;
+        }
       }
       
       console.log("Upload successful:", uploadResult.data);
+      setUploadProgress(100);
       
       // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from('videos')
         .getPublicUrl(filePath);
       
-      if (!publicUrlData) {
+      if (!publicUrlData || !publicUrlData.publicUrl) {
         throw new Error("Failed to get public URL");
       }
       
@@ -416,7 +479,7 @@ const Studio = () => {
         .from('sessions')
         .update({ 
           video_url: publicUrlData.publicUrl,
-          video_duration: Math.round(await getVideoDuration(blob)),
+          video_duration: Math.round(videoDuration),
           video_dimensions: videoDimensions
         })
         .eq('id', sid);
@@ -426,7 +489,10 @@ const Studio = () => {
         throw updateResult.error;
       }
       
-      console.log("Session updated successfully");
+      // Reset retry counter on success
+      uploadRetryCount.current = 0;
+      
+      console.log("Session updated successfully with video URL");
       
       toast({
         title: "Video saved",
@@ -434,6 +500,7 @@ const Studio = () => {
       });
     } catch (error) {
       console.error("Error uploading video:", error);
+      
       toast({
         variant: "destructive",
         title: "Upload Error",
@@ -443,6 +510,7 @@ const Studio = () => {
       });
     } finally {
       setIsVideoUploading(false);
+      setUploadProgress(0);
     }
   };
   
