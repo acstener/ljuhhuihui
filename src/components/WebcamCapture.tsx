@@ -25,24 +25,14 @@ export const WebcamCapture = ({
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   
-  // Separate states for video element and media stream
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  // Track media stream separately from video element
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   
   // Track if video is actually playing and stable
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const stableRef = useRef(false);
-  
-  // Callback ref function that will be passed to the video element
-  const videoRef = useCallback((node: HTMLVideoElement | null) => {
-    if (node) {
-      console.log("WebcamCapture: Video element mounted", node);
-      setVideoElement(node);
-    } else {
-      console.log("WebcamCapture: Video element unmounted");
-    }
-  }, []);
   
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,9 +140,9 @@ export const WebcamCapture = ({
   
   // EFFECT 2: Apply MediaStream to Video Element when both are available
   useEffect(() => {
-    if (!videoElement || !mediaStream) {
+    if (!videoRef.current || !mediaStream) {
       console.log("WebcamCapture: Waiting for video element and stream", { 
-        hasVideoElement: !!videoElement, 
+        hasVideoElement: !!videoRef.current, 
         hasMediaStream: !!mediaStream 
       });
       return;
@@ -161,12 +151,12 @@ export const WebcamCapture = ({
     console.log("WebcamCapture: Both video element and media stream are available, connecting");
     
     // Check if the video element is still in the document
-    if (document.body.contains(videoElement)) {
+    if (document.body.contains(videoRef.current)) {
       console.log("WebcamCapture: Video element is in DOM, setting srcObject");
       
       // Only set srcObject if it's different
-      if (videoElement.srcObject !== mediaStream) {
-        videoElement.srcObject = mediaStream;
+      if (videoRef.current.srcObject !== mediaStream) {
+        videoRef.current.srcObject = mediaStream;
       }
       
       // Setup video playing event
@@ -184,13 +174,13 @@ export const WebcamCapture = ({
       };
       
       // Add event listeners
-      videoElement.addEventListener('playing', playingHandler);
-      videoElement.addEventListener('error', errorHandler);
+      videoRef.current.addEventListener('playing', playingHandler);
+      videoRef.current.addEventListener('error', errorHandler);
       
       // Ensure the video plays after metadata loads
-      videoElement.onloadedmetadata = () => {
+      videoRef.current.onloadedmetadata = () => {
         console.log("WebcamCapture: Video metadata loaded, attempting to play");
-        videoElement.play().catch(err => {
+        videoRef.current?.play().catch(err => {
           console.error("WebcamCapture: Error playing video:", err);
           setIsVideoPlaying(false);
           stableRef.current = false;
@@ -198,9 +188,9 @@ export const WebcamCapture = ({
       };
       
       // If metadata already loaded, play immediately
-      if (videoElement.readyState >= 2) {
+      if (videoRef.current.readyState >= 2) {
         console.log("WebcamCapture: Video already has metadata, playing now");
-        videoElement.play().catch(err => {
+        videoRef.current.play().catch(err => {
           console.error("WebcamCapture: Error playing video:", err);
           setIsVideoPlaying(false);
           stableRef.current = false;
@@ -210,14 +200,16 @@ export const WebcamCapture = ({
       // Clean up event listeners
       return () => {
         console.log("WebcamCapture: Stream application effect cleanup");
-        videoElement.removeEventListener('playing', playingHandler);
-        videoElement.removeEventListener('error', errorHandler);
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('playing', playingHandler);
+          videoRef.current.removeEventListener('error', errorHandler);
+        }
       };
     } else {
       console.error("WebcamCapture: Video element is not in the DOM");
       setErrorMessage("Video element not connected to DOM");
     }
-  }, [videoElement, mediaStream]);
+  }, [videoRef, mediaStream]);
   
   // EFFECT 3: Component unmount cleanup
   useEffect(() => {
@@ -237,7 +229,7 @@ export const WebcamCapture = ({
   
   // Start/stop recording based on isRecording prop
   useEffect(() => {
-    if (!hasPermission || !mediaStream || !videoElement) return;
+    if (!hasPermission || !mediaStream || !videoRef.current) return;
     
     console.log("WebcamCapture: Recording state changed", isRecording);
     
@@ -246,7 +238,7 @@ export const WebcamCapture = ({
     } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       stopRecording();
     }
-  }, [isRecording, hasPermission, videoElement, mediaStream]);
+  }, [isRecording, hasPermission, videoRef, mediaStream]);
   
   // Recording timer
   useEffect(() => {
@@ -353,8 +345,8 @@ export const WebcamCapture = ({
     console.log("WebcamCapture: Resetting capture");
     setPreviewUrl(null);
     setErrorMessage(null);
-    if (videoElement && mediaStream) {
-      videoElement.srcObject = mediaStream;
+    if (videoRef.current && mediaStream) {
+      videoRef.current.srcObject = mediaStream;
     } else {
       console.warn("WebcamCapture: Can't reset capture, missing video element or stream");
     }
