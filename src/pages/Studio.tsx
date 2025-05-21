@@ -445,7 +445,6 @@ const Studio = () => {
                 if (newState) {
                   // When re-enabling, force a remount of the webcam
                   setWebcamKey(Date.now());
-                  setWebcamRetries(0);
                 }
               }}
               className="flex items-center gap-1 text-xs sm:text-sm"

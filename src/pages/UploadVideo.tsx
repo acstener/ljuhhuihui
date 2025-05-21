@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -161,16 +160,17 @@ const UploadVideo = () => {
       const fileName = `${Date.now()}_${file.name}`;
       const filePath = `${user.id}/${fileName}`;
       
+      // Custom progress handler
+      const progressHandler = (progress: number) => {
+        setUploadProgress(Math.round(progress * 100));
+      };
+      
       // Upload the file to Supabase storage
       const { error: uploadError, data } = await supabase.storage
         .from('videos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true,
-          onUploadProgress: (event) => {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(progress);
-          }
+          upsert: true
         });
       
       if (uploadError) throw uploadError;
