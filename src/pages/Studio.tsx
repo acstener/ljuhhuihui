@@ -11,7 +11,7 @@ import { VoiceOrb } from "@/components/VoiceOrb";
 import { WebcamCapture } from "@/components/WebcamCapture";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
-import { cn } from "@/lib/utils"; // Add this import to fix the error
+import { cn } from "@/lib/utils";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -38,13 +38,15 @@ const Studio = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Webcam state - enable by default for better discoverability
+  // Webcam state with improved management
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
-  const [webcamKey, setWebcamKey] = useState(Date.now()); // Key for remounting webcam component
-  const [webcamRetries, setWebcamRetries] = useState(0); // Track retry attempts
+  const [webcamKey, setWebcamKey] = useState(Date.now());
+  const [isWebcamWorking, setIsWebcamWorking] = useState(false);
+  const lastRefreshTimeRef = useRef(Date.now());
+  const webcamRefreshTimeoutRef = useRef<number | null>(null);
   
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
@@ -54,8 +56,12 @@ const Studio = () => {
   
   // Log webcam state for debugging
   useEffect(() => {
-    console.log("Webcam state:", { isVideoEnabled, isVideoRecording });
-  }, [isVideoEnabled, isVideoRecording]);
+    console.log("Studio: Webcam state:", { 
+      isVideoEnabled, 
+      isVideoRecording,
+      isWebcamWorking
+    });
+  }, [isVideoEnabled, isVideoRecording, isWebcamWorking]);
   
   // Auto-save transcript when it changes and we have a session ID
   useEffect(() => {
@@ -123,6 +129,75 @@ const Studio = () => {
       setIsVideoRecording(false);
     }
   }, [isListening, isVideoEnabled, isVideoRecording]);
+  
+  // Improved webcam refresh mechanism - only retry if camera is not working
+  useEffect(() => {
+    // Clear any existing timeout when component mounts/unmounts or state changes
+    if (webcamRefreshTimeoutRef.current) {
+      clearTimeout(webcamRefreshTimeoutRef.current);
+      webcamRefreshTimeoutRef.current = null;
+    }
+    
+    // Skip if webcam is disabled
+    if (!isVideoEnabled) return;
+    
+    console.log("Studio: Setting up webcam refresh mechanism");
+    
+    // If webcam is not working, schedule a refresh after a reasonable delay
+    if (!isWebcamWorking) {
+      // Calculate time since last refresh (to avoid refresh loops)
+      const timeSinceLastRefresh = Date.now() - lastRefreshTimeRef.current;
+      
+      // Only schedule a refresh if it's been at least 10 seconds since the last one
+      if (timeSinceLastRefresh >= 10000) {
+        console.log(`Studio: Webcam not working, scheduling refresh in 5 seconds`);
+        
+        webcamRefreshTimeoutRef.current = window.setTimeout(() => {
+          console.log("Studio: Refreshing webcam due to not working");
+          setWebcamKey(Date.now());
+          lastRefreshTimeRef.current = Date.now();
+          webcamRefreshTimeoutRef.current = null;
+        }, 5000);
+      } else {
+        console.log(`Studio: Webcam not working but last refresh was only ${Math.round(timeSinceLastRefresh/1000)}s ago, waiting...`);
+      }
+    }
+    
+    return () => {
+      if (webcamRefreshTimeoutRef.current) {
+        clearTimeout(webcamRefreshTimeoutRef.current);
+        webcamRefreshTimeoutRef.current = null;
+      }
+    };
+  }, [isVideoEnabled, isWebcamWorking]);
+  
+  // Handler for webcam status updates
+  const handleWebcamStatusChange = (isWorking: boolean) => {
+    console.log("Studio: Webcam status update -", isWorking ? "working" : "not working");
+    setIsWebcamWorking(isWorking);
+  };
+  
+  // Manual webcam refresh handler with cooldown
+  const [isRefreshingWebcam, setIsRefreshingWebcam] = useState(false);
+  
+  const handleRefreshWebcam = () => {
+    if (isRefreshingWebcam) return;
+    
+    setIsRefreshingWebcam(true);
+    console.log("Studio: Manually refreshing webcam");
+    setWebcamKey(Date.now());
+    lastRefreshTimeRef.current = Date.now();
+    
+    toast({
+      title: "Camera refreshed",
+      description: "Attempting to reconnect to your camera.",
+    });
+    
+    // Prevent spam clicking
+    setTimeout(() => {
+      setIsRefreshingWebcam(false);
+    }, 2000);
+  };
   
   // Parse transcript into conversation format
   const parseTranscript = () => {
@@ -344,71 +419,6 @@ const Studio = () => {
     }
   };
 
-  // Improved webcam management with exponential backoff
-  useEffect(() => {
-    // Skip if webcam is disabled
-    if (!isVideoEnabled) return;
-    
-    console.log("Studio: Setting up webcam refresh mechanism");
-    
-    // Initial refresh after component mount
-    const initialTimeout = setTimeout(() => {
-      console.log("Studio: Initial webcam component refresh");
-      setWebcamKey(Date.now());
-    }, 1000);
-    
-    // Setup regular health checks with exponential backoff
-    let checkInterval: number | null = null;
-    
-    // Start regular checks after initial mount
-    const startRegularChecks = () => {
-      // Calculate interval with exponential backoff
-      const baseInterval = 5000; // 5 seconds
-      const maxInterval = 30000; // 30 seconds
-      const backoffFactor = Math.min(Math.pow(1.5, webcamRetries), maxInterval / baseInterval);
-      const interval = Math.min(baseInterval * backoffFactor, maxInterval);
-      
-      console.log(`Studio: Setting webcam check interval to ${interval}ms (retry #${webcamRetries})`);
-      
-      checkInterval = window.setInterval(() => {
-        console.log("Studio: Checking webcam status");
-        setWebcamRetries(prev => prev + 1);
-        setWebcamKey(Date.now());
-      }, interval);
-    };
-    
-    // Start checks after a delay
-    const startChecksTimeout = setTimeout(startRegularChecks, 5000);
-    
-    return () => {
-      clearTimeout(initialTimeout);
-      clearTimeout(startChecksTimeout);
-      if (checkInterval) clearInterval(checkInterval);
-    };
-  }, [isVideoEnabled, webcamRetries]);
-  
-  // Manual webcam refresh handler with cooldown
-  const [isRefreshingWebcam, setIsRefreshingWebcam] = useState(false);
-  
-  const handleRefreshWebcam = () => {
-    if (isRefreshingWebcam) return;
-    
-    setIsRefreshingWebcam(true);
-    console.log("Studio: Manually refreshing webcam");
-    setWebcamKey(Date.now());
-    setWebcamRetries(0); // Reset retry counter on manual refresh
-    
-    toast({
-      title: "Camera refreshed",
-      description: "Attempting to reconnect to your camera.",
-    });
-    
-    // Prevent spam clicking
-    setTimeout(() => {
-      setIsRefreshingWebcam(false);
-    }, 2000);
-  };
-  
   return (
     <div className="min-h-screen bg-background">
       {/* Content container with proper spacing */}
@@ -476,12 +486,12 @@ const Studio = () => {
         {/* Debug information */}
         <div className="text-xs text-muted-foreground mb-2">
           <div className="flex items-center gap-2 justify-center">
-            <p>Camera status: {isVideoEnabled ? "Enabled" : "Disabled"}</p>
+            <p>Camera status: {isVideoEnabled ? (isWebcamWorking ? "Ready" : "Connecting...") : "Disabled"}</p>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleRefreshWebcam}
-              disabled={isRefreshingWebcam}
+              disabled={isRefreshingWebcam || !isVideoEnabled}
               className={cn(
                 "text-xs flex items-center gap-1",
                 isRefreshingWebcam && "opacity-50 cursor-not-allowed"
@@ -513,6 +523,7 @@ const Studio = () => {
                 isRecording={isVideoRecording}
                 onRecordingStart={handleVideoStart}
                 onRecordingStop={handleVideoStop}
+                onStatusChange={handleWebcamStatusChange}
                 size="lg"
                 className={isVideoUploading ? "opacity-50 pointer-events-none" : ""}
               />

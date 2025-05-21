@@ -11,6 +11,7 @@ interface WebcamCaptureProps {
   onRecordingStop: (videoBlob: Blob | null) => void;
   size?: "sm" | "md" | "lg";
   className?: string;
+  onStatusChange?: (isWorking: boolean) => void;
 }
 
 export const WebcamCapture = ({
@@ -18,7 +19,8 @@ export const WebcamCapture = ({
   onRecordingStart,
   onRecordingStop,
   size = "md",
-  className
+  className,
+  onStatusChange
 }: WebcamCaptureProps) => {
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -27,6 +29,10 @@ export const WebcamCapture = ({
   // Separate states for video element and media stream
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  
+  // Track if video is actually playing and stable
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const stableRef = useRef(false);
   
   // Callback ref function that will be passed to the video element
   const videoRef = useCallback((node: HTMLVideoElement | null) => {
@@ -53,6 +59,13 @@ export const WebcamCapture = ({
     lg: "h-32 w-32"
   };
   
+  // Report webcam status to parent
+  useEffect(() => {
+    if (onStatusChange) {
+      onStatusChange(isVideoPlaying && hasPermission === true && !!mediaStream);
+    }
+  }, [isVideoPlaying, hasPermission, mediaStream, onStatusChange]);
+  
   // Check browser compatibility on mount
   useEffect(() => {
     console.log("WebcamCapture: Checking browser compatibility");
@@ -61,6 +74,7 @@ export const WebcamCapture = ({
       setIsBrowserSupported(false);
       setIsLoading(false);
       setErrorMessage("Your browser doesn't support webcam recording");
+      
       toast({
         title: "Browser not supported",
         description: "Your browser doesn't support webcam recording.",
@@ -75,6 +89,13 @@ export const WebcamCapture = ({
   useEffect(() => {
     if (!isBrowserSupported) {
       console.log("WebcamCapture: Skipping stream acquisition - browser not supported");
+      return;
+    }
+    
+    // Don't request camera access again if we already have a working stream
+    if (mediaStream && mediaStream.active && hasPermission === true) {
+      console.log("WebcamCapture: Using existing active media stream");
+      setIsLoading(false);
       return;
     }
     
@@ -142,13 +163,37 @@ export const WebcamCapture = ({
     // Check if the video element is still in the document
     if (document.body.contains(videoElement)) {
       console.log("WebcamCapture: Video element is in DOM, setting srcObject");
-      videoElement.srcObject = mediaStream;
+      
+      // Only set srcObject if it's different
+      if (videoElement.srcObject !== mediaStream) {
+        videoElement.srcObject = mediaStream;
+      }
+      
+      // Setup video playing event
+      const playingHandler = () => {
+        console.log("WebcamCapture: Video is now playing");
+        setIsVideoPlaying(true);
+        stableRef.current = true;
+      };
+      
+      // Setup error handler
+      const errorHandler = (err: Event) => {
+        console.error("WebcamCapture: Video playback error:", err);
+        setIsVideoPlaying(false);
+        stableRef.current = false;
+      };
+      
+      // Add event listeners
+      videoElement.addEventListener('playing', playingHandler);
+      videoElement.addEventListener('error', errorHandler);
       
       // Ensure the video plays after metadata loads
       videoElement.onloadedmetadata = () => {
         console.log("WebcamCapture: Video metadata loaded, attempting to play");
         videoElement.play().catch(err => {
           console.error("WebcamCapture: Error playing video:", err);
+          setIsVideoPlaying(false);
+          stableRef.current = false;
         });
       };
       
@@ -157,23 +202,30 @@ export const WebcamCapture = ({
         console.log("WebcamCapture: Video already has metadata, playing now");
         videoElement.play().catch(err => {
           console.error("WebcamCapture: Error playing video:", err);
+          setIsVideoPlaying(false);
+          stableRef.current = false;
         });
       }
+      
+      // Clean up event listeners
+      return () => {
+        console.log("WebcamCapture: Stream application effect cleanup");
+        videoElement.removeEventListener('playing', playingHandler);
+        videoElement.removeEventListener('error', errorHandler);
+      };
     } else {
       console.error("WebcamCapture: Video element is not in the DOM");
       setErrorMessage("Video element not connected to DOM");
     }
-    
-    return () => {
-      console.log("WebcamCapture: Stream application effect cleanup");
-      // Don't set srcObject to null here, as it may cause issues if the component is being updated
-    };
   }, [videoElement, mediaStream]);
   
   // EFFECT 3: Component unmount cleanup
   useEffect(() => {
     return () => {
       console.log("WebcamCapture: Component unmounting");
+      setIsVideoPlaying(false);
+      stableRef.current = false;
+      
       if (mediaStream) {
         mediaStream.getTracks().forEach(track => {
           console.log(`WebcamCapture: Stopping track ${track.kind} on unmount`);
@@ -214,17 +266,17 @@ export const WebcamCapture = ({
   
   // Auto retry if initialization fails
   useEffect(() => {
-    if (initializationAttempts > 0 && initializationAttempts < 3) {
+    if (initializationAttempts > 0 && initializationAttempts < 3 && hasPermission !== true) {
       // Try again after a delay, but only up to 3 attempts
       const retryTimeout = setTimeout(() => {
         console.log(`WebcamCapture: Auto-retrying initialization (attempt ${initializationAttempts + 1})`);
         // Just bumping this will trigger the initialization effect
         setInitializationAttempts(prev => prev + 1);
-      }, 1000);
+      }, 2000);
       
       return () => clearTimeout(retryTimeout);
     }
-  }, [initializationAttempts]);
+  }, [initializationAttempts, hasPermission]);
   
   const startRecording = () => {
     if (!mediaStream) {
@@ -449,7 +501,7 @@ export const WebcamCapture = ({
           : isRecording 
             ? "Recording..." 
             : hasPermission === true
-              ? mediaStream ? "Camera ready" : "Waiting for camera..."
+              ? isVideoPlaying ? "Camera ready" : "Preparing camera..."
               : "Waiting for camera..."}
       </p>
       
