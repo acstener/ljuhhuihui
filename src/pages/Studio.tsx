@@ -1,14 +1,14 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowLeft, Zap, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
 import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceOrb } from "@/components/VoiceOrb";
+import { WebcamCapture } from "@/components/WebcamCapture";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
 
@@ -36,6 +36,12 @@ const Studio = () => {
   // Session ID for the current session
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Webcam state
+  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  const [isVideoRecording, setIsVideoRecording] = useState(false);
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [isVideoUploading, setIsVideoUploading] = useState(false);
   
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
@@ -101,6 +107,15 @@ const Studio = () => {
     }
   }, [isListening, sessionId, user, toast]);
   
+  // Toggle webcam recording with voice recording
+  useEffect(() => {
+    if (isListening && isVideoEnabled && !isVideoRecording) {
+      setIsVideoRecording(true);
+    } else if (!isListening && isVideoRecording) {
+      setIsVideoRecording(false);
+    }
+  }, [isListening, isVideoEnabled, isVideoRecording]);
+  
   // Parse transcript into conversation format
   const parseTranscript = () => {
     if (!transcript.trim()) return [];
@@ -138,6 +153,115 @@ const Studio = () => {
   };
   
   const conversationMessages = parseTranscript();
+  
+  // Handle video recording events
+  const handleVideoStart = () => {
+    console.log("Video recording started");
+  };
+  
+  const handleVideoStop = async (blob: Blob | null) => {
+    if (!blob) {
+      console.error("No video recorded");
+      return;
+    }
+    
+    console.log("Video recording stopped, blob size:", blob.size);
+    setVideoBlob(blob);
+    
+    // Upload to Supabase if we have a session ID
+    if (sessionId && user) {
+      await uploadVideoToSupabase(blob, sessionId);
+    }
+  };
+  
+  const uploadVideoToSupabase = async (blob: Blob, sid: string) => {
+    if (!user) return;
+    
+    setIsVideoUploading(true);
+    try {
+      const fileName = `${sid}_${Date.now()}.webm`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      // Get video dimensions before uploading
+      const videoDimensions = await getVideoDimensions(blob);
+      
+      // Upload video to storage
+      const { error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'video/webm'
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(filePath);
+      
+      if (!publicUrlData) throw new Error("Failed to get public URL");
+      
+      // Update session with video URL
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({ 
+          video_url: publicUrlData.publicUrl,
+          video_duration: Math.round(await getVideoDuration(blob)),
+          video_dimensions: videoDimensions
+        })
+        .eq('id', sid);
+      
+      if (updateError) throw updateError;
+      
+      toast({
+        title: "Video saved",
+        description: "Your video has been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Error uploading video:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload Error",
+        description: "Failed to upload video. Please try again."
+      });
+    } finally {
+      setIsVideoUploading(false);
+    }
+  };
+  
+  // Helper functions to get video metadata
+  const getVideoDuration = (blob: Blob): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      
+      video.src = URL.createObjectURL(blob);
+    });
+  };
+  
+  const getVideoDimensions = (blob: Blob): Promise<{width: number, height: number}> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        resolve({
+          width: video.videoWidth,
+          height: video.videoHeight
+        });
+      };
+      
+      video.src = URL.createObjectURL(blob);
+    });
+  };
   
   const useTranscript = async () => {
     if (!transcriptRef.current.trim()) {
@@ -228,15 +352,36 @@ const Studio = () => {
             <span className="whitespace-nowrap">Back to Dashboard</span>
           </Button>
           
-          <Button
-            onClick={useTranscript}
-            disabled={!transcript.trim() || isSaving}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
-            size="sm"
-          >
-            {isSaving ? "Processing..." : "Generate Content"}
-            <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsVideoEnabled(!isVideoEnabled)}
+              className="flex items-center gap-1 text-xs sm:text-sm"
+            >
+              {isVideoEnabled ? (
+                <>
+                  <VideoOff className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Disable Camera</span>
+                </>
+              ) : (
+                <>
+                  <Video className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Enable Camera</span>
+                </>
+              )}
+            </Button>
+            
+            <Button
+              onClick={useTranscript}
+              disabled={!transcript.trim() || isSaving}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
+              size="sm"
+            >
+              {isSaving ? "Processing..." : "Generate Content"}
+              <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+            </Button>
+          </div>
         </header>
         
         {/* Title section with reduced spacing */}
@@ -249,8 +394,9 @@ const Studio = () => {
         
         {/* Main content area with balanced spacing */}
         <div className="flex flex-col items-center w-full space-y-4">
-          {/* Voice Orb with proper spacing */}
-          <div className="mb-4">
+          {/* Capture section - Voice Orb and Webcam */}
+          <div className="flex flex-col sm:flex-row items-center gap-8 mb-4">
+            {/* Voice Orb */}
             <VoiceOrb 
               isListening={isListening}
               isInitializing={isInitializing}
@@ -258,6 +404,17 @@ const Studio = () => {
               onStartConversation={startConversation}
               onStopConversation={stopConversation}
             />
+            
+            {/* Webcam Capture (conditionally rendered) */}
+            {isVideoEnabled && (
+              <WebcamCapture
+                isRecording={isVideoRecording}
+                onRecordingStart={handleVideoStart}
+                onRecordingStop={handleVideoStop}
+                size="lg"
+                className={isVideoUploading ? "opacity-50 pointer-events-none" : ""}
+              />
+            )}
           </div>
           
           {/* Chat conversation container */}

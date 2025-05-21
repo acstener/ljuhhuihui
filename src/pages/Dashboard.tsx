@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders, RefreshCw } from "lucide-react";
+import { Mic, MessageSquare, Plus, Sparkles, Clock, Calendar, Sliders, RefreshCw, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/App";
 import { formatDate } from "@/lib/utils";
@@ -17,6 +17,9 @@ interface Session {
   title: string;
   created_at: string;
   transcript: string | null;
+  video_url: string | null;
+  video_duration: number | null;
+  video_dimensions: { width: number, height: number } | null;
 }
 
 const Dashboard = () => {
@@ -64,6 +67,14 @@ const Dashboard = () => {
       hour: 'numeric', 
       minute: '2-digit'
     });
+  };
+
+  // Format video duration for display
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return "N/A";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -160,12 +171,30 @@ const Dashboard = () => {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-base">{session.title}</CardTitle>
+                  {session.video_url && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Video className="h-3 w-3" />
+                      {session.video_duration && (
+                        <span>{formatDuration(session.video_duration)}</span>
+                      )}
+                    </Badge>
+                  )}
                 </div>
                 <CardDescription className="text-xs">
                   {formatSessionDate(session.created_at)}
                 </CardDescription>
               </CardHeader>
               <CardContent className="pb-2">
+                {session.video_url ? (
+                  <div className="mb-2 relative pt-[56.25%] bg-muted rounded overflow-hidden">
+                    <video 
+                      src={session.video_url}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      poster={session.video_url ? `${session.video_url}#t=0.5` : undefined}
+                      preload="metadata"
+                    />
+                  </div>
+                ) : null}
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {session.transcript ? (
                     session.transcript.substring(0, 100) + (session.transcript.length > 100 ? '...' : '')
