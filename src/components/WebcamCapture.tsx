@@ -23,15 +23,18 @@ export const WebcamCapture = ({
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
   
-  // Use a state to store the video element ref instead of useRef
+  // Separate states for video element and media stream
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  
   // Callback ref function that will be passed to the video element
   const videoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node) {
       console.log("WebcamCapture: Video element mounted", node);
       setVideoElement(node);
+    } else {
+      console.log("WebcamCapture: Video element unmounted");
     }
   }, []);
   
@@ -68,47 +71,36 @@ export const WebcamCapture = ({
     }
   }, [toast]);
 
-  // Initialize webcam whenever the video element is set or changes
+  // EFFECT 1: Request camera permissions and acquire MediaStream
   useEffect(() => {
-    if (!isBrowserSupported || !videoElement) {
-      console.log("WebcamCapture: Skipping initialization - browser support:", isBrowserSupported, "video element:", !!videoElement);
+    if (!isBrowserSupported) {
+      console.log("WebcamCapture: Skipping stream acquisition - browser not supported");
       return;
     }
     
-    console.log("WebcamCapture: Initializing webcam with video element", videoElement);
-    let stream: MediaStream | null = null;
+    console.log("WebcamCapture: Attempting to acquire MediaStream");
+    setIsLoading(true);
+    setErrorMessage(null);
     
-    const initWebcam = async () => {
-      setIsLoading(true);
-      setErrorMessage(null);
+    const acquireStream = async () => {
       try {
         console.log("WebcamCapture: Requesting camera access");
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720 },
           audio: true
         });
         
         console.log("WebcamCapture: Camera access granted", stream);
-        
-        // Direct DOM check - make sure the element is still in the document
-        if (videoElement && document.body.contains(videoElement)) {
-          console.log("WebcamCapture: Setting video source on verified element");
-          // Set both the srcObject and the ref
-          videoElement.srcObject = stream;
-          streamRef.current = stream;
-          setHasPermission(true);
-          setInitializationAttempts(0); // Reset attempts on success
-        } else {
-          console.error("WebcamCapture: Video element is not in the document");
-          setErrorMessage("Video element not connected to DOM");
-          throw new Error("Video element not connected to DOM");
-        }
+        setMediaStream(stream);
+        setHasPermission(true);
+        setInitializationAttempts(0); // Reset attempts on success
       } catch (err) {
         console.error("WebcamCapture: Error accessing webcam:", err);
         setHasPermission(false);
+        setMediaStream(null);
         setErrorMessage(err instanceof Error ? err.message : "Unknown error accessing camera");
         
-        // Increment attempts counter
+        // Increment attempts counter for potential auto-retry
         setInitializationAttempts(prev => prev + 1);
         
         toast({
@@ -121,23 +113,79 @@ export const WebcamCapture = ({
       }
     };
     
-    initWebcam();
+    acquireStream();
     
-    // Cleanup
+    // Cleanup function to stop all tracks when this effect is re-run or component unmounts
     return () => {
-      console.log("WebcamCapture: Cleaning up");
-      if (stream) {
-        stream.getTracks().forEach(track => {
+      if (mediaStream) {
+        console.log("WebcamCapture: Cleaning up stream from acquisition effect");
+        mediaStream.getTracks().forEach(track => {
           console.log(`WebcamCapture: Stopping track ${track.kind}`);
           track.stop();
         });
       }
     };
-  }, [isBrowserSupported, toast, videoElement, initializationAttempts]);
+  }, [isBrowserSupported, toast, initializationAttempts]);
+  
+  // EFFECT 2: Apply MediaStream to Video Element when both are available
+  useEffect(() => {
+    if (!videoElement || !mediaStream) {
+      console.log("WebcamCapture: Waiting for video element and stream", { 
+        hasVideoElement: !!videoElement, 
+        hasMediaStream: !!mediaStream 
+      });
+      return;
+    }
+    
+    console.log("WebcamCapture: Both video element and media stream are available, connecting");
+    
+    // Check if the video element is still in the document
+    if (document.body.contains(videoElement)) {
+      console.log("WebcamCapture: Video element is in DOM, setting srcObject");
+      videoElement.srcObject = mediaStream;
+      
+      // Ensure the video plays after metadata loads
+      videoElement.onloadedmetadata = () => {
+        console.log("WebcamCapture: Video metadata loaded, attempting to play");
+        videoElement.play().catch(err => {
+          console.error("WebcamCapture: Error playing video:", err);
+        });
+      };
+      
+      // If metadata already loaded, play immediately
+      if (videoElement.readyState >= 2) {
+        console.log("WebcamCapture: Video already has metadata, playing now");
+        videoElement.play().catch(err => {
+          console.error("WebcamCapture: Error playing video:", err);
+        });
+      }
+    } else {
+      console.error("WebcamCapture: Video element is not in the DOM");
+      setErrorMessage("Video element not connected to DOM");
+    }
+    
+    return () => {
+      console.log("WebcamCapture: Stream application effect cleanup");
+      // Don't set srcObject to null here, as it may cause issues if the component is being updated
+    };
+  }, [videoElement, mediaStream]);
+  
+  // EFFECT 3: Component unmount cleanup
+  useEffect(() => {
+    return () => {
+      console.log("WebcamCapture: Component unmounting");
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => {
+          console.log(`WebcamCapture: Stopping track ${track.kind} on unmount`);
+          track.stop();
+        });
+      }
+    };
+  }, []);
   
   // Start/stop recording based on isRecording prop
   useEffect(() => {
-    if (!hasPermission || !streamRef.current || !videoElement) return;
+    if (!hasPermission || !mediaStream || !videoElement) return;
     
     console.log("WebcamCapture: Recording state changed", isRecording);
     
@@ -146,7 +194,7 @@ export const WebcamCapture = ({
     } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       stopRecording();
     }
-  }, [isRecording, hasPermission, videoElement]);
+  }, [isRecording, hasPermission, videoElement, mediaStream]);
   
   // Recording timer
   useEffect(() => {
@@ -179,7 +227,7 @@ export const WebcamCapture = ({
   }, [initializationAttempts]);
   
   const startRecording = () => {
-    if (!streamRef.current) {
+    if (!mediaStream) {
       console.error("WebcamCapture: No stream available for recording");
       return;
     }
@@ -202,7 +250,7 @@ export const WebcamCapture = ({
       }
       
       console.log("WebcamCapture: Creating MediaRecorder with options:", options);
-      mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
+      mediaRecorderRef.current = new MediaRecorder(mediaStream, options);
       
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -253,8 +301,8 @@ export const WebcamCapture = ({
     console.log("WebcamCapture: Resetting capture");
     setPreviewUrl(null);
     setErrorMessage(null);
-    if (videoElement && streamRef.current) {
-      videoElement.srcObject = streamRef.current;
+    if (videoElement && mediaStream) {
+      videoElement.srcObject = mediaStream;
     } else {
       console.warn("WebcamCapture: Can't reset capture, missing video element or stream");
     }
@@ -271,6 +319,7 @@ export const WebcamCapture = ({
     console.log("WebcamCapture: Manually requesting camera access");
     setIsLoading(true);
     setErrorMessage(null);
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -278,13 +327,8 @@ export const WebcamCapture = ({
       });
       
       console.log("WebcamCapture: Camera access granted on manual request");
-      if (videoElement) {
-        videoElement.srcObject = stream;
-        streamRef.current = stream;
-        setHasPermission(true);
-      } else {
-        console.error("WebcamCapture: Video element is null on manual request");
-      }
+      setMediaStream(stream);
+      setHasPermission(true);
     } catch (err) {
       console.error("WebcamCapture: Error accessing webcam on manual request:", err);
       setHasPermission(false);
@@ -405,7 +449,7 @@ export const WebcamCapture = ({
           : isRecording 
             ? "Recording..." 
             : hasPermission === true
-              ? "Camera ready"
+              ? mediaStream ? "Camera ready" : "Waiting for camera..."
               : "Waiting for camera..."}
       </p>
       

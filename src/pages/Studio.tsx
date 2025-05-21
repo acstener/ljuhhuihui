@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,7 +42,8 @@ const Studio = () => {
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
-  const [webcamKey, setWebcamKey] = useState(Date.now()); // Add key for remounting webcam component
+  const [webcamKey, setWebcamKey] = useState(Date.now()); // Key for remounting webcam component
+  const [webcamRetries, setWebcamRetries] = useState(0); // Track retry attempts
   
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
@@ -343,37 +343,69 @@ const Studio = () => {
     }
   };
 
-  // Webcam management - proactive remounting and retry logic
+  // Improved webcam management with exponential backoff
   useEffect(() => {
-    // If we've been on the page for a while and still have webcam errors, try remounting
+    // Skip if webcam is disabled
+    if (!isVideoEnabled) return;
+    
+    console.log("Studio: Setting up webcam refresh mechanism");
+    
+    // Initial refresh after component mount
     const initialTimeout = setTimeout(() => {
       console.log("Studio: Initial webcam component refresh");
       setWebcamKey(Date.now());
-    }, 3000);
+    }, 1000);
     
-    // Setup regular checks to ensure webcam is working
-    const checkInterval = setInterval(() => {
-      // Only refresh if video is enabled but no tracks are active
-      if (isVideoEnabled) {
+    // Setup regular health checks with exponential backoff
+    let checkInterval: number | null = null;
+    
+    // Start regular checks after initial mount
+    const startRegularChecks = () => {
+      // Calculate interval with exponential backoff
+      const baseInterval = 5000; // 5 seconds
+      const maxInterval = 30000; // 30 seconds
+      const backoffFactor = Math.min(Math.pow(1.5, webcamRetries), maxInterval / baseInterval);
+      const interval = Math.min(baseInterval * backoffFactor, maxInterval);
+      
+      console.log(`Studio: Setting webcam check interval to ${interval}ms (retry #${webcamRetries})`);
+      
+      checkInterval = window.setInterval(() => {
         console.log("Studio: Checking webcam status");
-        setWebcamKey(prevKey => prevKey + 1);
-      }
-    }, 30000); // Check every 30 seconds
+        setWebcamRetries(prev => prev + 1);
+        setWebcamKey(Date.now());
+      }, interval);
+    };
+    
+    // Start checks after a delay
+    const startChecksTimeout = setTimeout(startRegularChecks, 5000);
     
     return () => {
       clearTimeout(initialTimeout);
-      clearInterval(checkInterval);
+      clearTimeout(startChecksTimeout);
+      if (checkInterval) clearInterval(checkInterval);
     };
-  }, [isVideoEnabled]);
+  }, [isVideoEnabled, webcamRetries]);
   
-  // Manual webcam refresh handler
+  // Manual webcam refresh handler with cooldown
+  const [isRefreshingWebcam, setIsRefreshingWebcam] = useState(false);
+  
   const handleRefreshWebcam = () => {
+    if (isRefreshingWebcam) return;
+    
+    setIsRefreshingWebcam(true);
     console.log("Studio: Manually refreshing webcam");
     setWebcamKey(Date.now());
+    setWebcamRetries(0); // Reset retry counter on manual refresh
+    
     toast({
       title: "Camera refreshed",
       description: "Attempting to reconnect to your camera.",
     });
+    
+    // Prevent spam clicking
+    setTimeout(() => {
+      setIsRefreshingWebcam(false);
+    }, 2000);
   };
   
   return (
@@ -402,6 +434,7 @@ const Studio = () => {
                 if (newState) {
                   // When re-enabling, force a remount of the webcam
                   setWebcamKey(Date.now());
+                  setWebcamRetries(0);
                 }
               }}
               className="flex items-center gap-1 text-xs sm:text-sm"
@@ -447,10 +480,14 @@ const Studio = () => {
               variant="outline" 
               size="sm" 
               onClick={handleRefreshWebcam}
-              className="text-xs flex items-center gap-1"
+              disabled={isRefreshingWebcam}
+              className={cn(
+                "text-xs flex items-center gap-1",
+                isRefreshingWebcam && "opacity-50 cursor-not-allowed"
+              )}
             >
-              <RefreshCw className="h-3 w-3" />
-              Refresh Camera
+              <RefreshCw className={cn("h-3 w-3", isRefreshingWebcam && "animate-spin")} />
+              {isRefreshingWebcam ? "Refreshing..." : "Refresh Camera"}
             </Button>
           </div>
         </div>
