@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +42,7 @@ const Studio = () => {
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
+  const [webcamKey, setWebcamKey] = useState(Date.now()); // Add key for remounting webcam component
   
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
@@ -342,6 +342,17 @@ const Studio = () => {
     }
   };
 
+  // Add effect to handle webcam initialization errors
+  useEffect(() => {
+    // If we've been on the page for a while and still have webcam errors, try remounting
+    const timeoutId = setTimeout(() => {
+      console.log("Studio: Refreshing webcam component");
+      setWebcamKey(Date.now());
+    }, 3000);
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
+  
   return (
     <div className="min-h-screen bg-background">
       {/* Content container with proper spacing */}
@@ -402,6 +413,14 @@ const Studio = () => {
         <div className="text-xs text-muted-foreground mb-2">
           <p>Camera enabled: {isVideoEnabled ? "Yes" : "No"}</p>
           <p>Camera recording: {isVideoRecording ? "Yes" : "No"}</p>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setWebcamKey(Date.now())}
+            className="text-xs"
+          >
+            Refresh Camera
+          </Button>
         </div>
         
         {/* Main content area with balanced spacing */}
@@ -420,6 +439,7 @@ const Studio = () => {
             {/* Always render Webcam component but use conditional styling */}
             <div className={isVideoEnabled ? "block" : "hidden"}>
               <WebcamCapture
+                key={webcamKey} // Important: Add key to force remount when needed
                 isRecording={isVideoRecording}
                 onRecordingStart={handleVideoStart}
                 onRecordingStop={handleVideoStop}

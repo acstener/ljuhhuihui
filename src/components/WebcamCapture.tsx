@@ -21,7 +21,7 @@ export const WebcamCapture = ({
   className
 }: WebcamCaptureProps) => {
   const { toast } = useToast();
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -33,6 +33,7 @@ export const WebcamCapture = ({
   const [timerInterval, setTimerInterval] = useState<number | null>(null);
   const [isBrowserSupported, setIsBrowserSupported] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [videoElementReady, setVideoElementReady] = useState(false);
   
   const sizeClasses = {
     sm: "h-16 w-16",
@@ -57,10 +58,21 @@ export const WebcamCapture = ({
       console.log("WebcamCapture: Browser supports webcam recording");
     }
   }, [toast]);
-  
-  // Initialize webcam on mount
+
+  // Ensure the video element is ready before accessing it
   useEffect(() => {
-    if (!isBrowserSupported) return;
+    // Add a small delay to ensure DOM is fully rendered
+    const timer = setTimeout(() => {
+      setVideoElementReady(true);
+      console.log("WebcamCapture: Video element ready check", !!videoRef.current);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Initialize webcam when video element is ready
+  useEffect(() => {
+    if (!isBrowserSupported || !videoElementReady) return;
     
     console.log("WebcamCapture: Initializing webcam");
     let stream: MediaStream | null = null;
@@ -85,6 +97,11 @@ export const WebcamCapture = ({
         } else {
           console.error("WebcamCapture: Video ref is null");
           setErrorMessage("Video element not available");
+          toast({
+            title: "Camera Error",
+            description: "Could not initialize video element. Please refresh the page.",
+            variant: "destructive"
+          });
         }
       } catch (err) {
         console.error("WebcamCapture: Error accessing webcam:", err);
@@ -112,7 +129,7 @@ export const WebcamCapture = ({
         });
       }
     };
-  }, [isBrowserSupported, toast]);
+  }, [isBrowserSupported, toast, videoElementReady]);
   
   // Start/stop recording based on isRecording prop
   useEffect(() => {
