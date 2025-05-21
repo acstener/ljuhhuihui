@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,8 +53,8 @@ const formSchema = z.object({
   exampleTweets: z.array(z.string()),
 });
 
-// Define a proper type for TonePreference that matches database structure
-type TonePreference = Database['public']['Tables']['tone_preferences']['Row'];
+// Define type for TonePreference using Database types
+type TonePreference = Database["public"]["Tables"]["tone_preferences"]["Row"];
 
 // Update the component to accept a trigger prop
 interface TonePreferencesDrawerProps {
@@ -87,8 +88,10 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      // Fix for TypeScript error - ensure data is properly typed as an array
+      
+      // Use type assertion to handle the data safely
       if (data) {
+        // Cast data to the correct type
         setTonePreferences(data as TonePreference[]);
       }
     } catch (error: any) {
@@ -140,13 +143,15 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
       // Filter out empty tweets
       const nonEmptyTweets = values.exampleTweets.filter(tweet => tweet.trim() !== "");
       
-      // Fix for TypeScript error - properly structure insert data
-      const { error } = await supabase.from("tone_preferences").insert({
+      // Use the correct type for insert
+      const insertData: Database["public"]["Tables"]["tone_preferences"]["Insert"] = {
         user_id: user.id,
         name: values.name,
         description: values.description,
         example_tweets: nonEmptyTweets,
-      } as Database['public']['Tables']['tone_preferences']['Insert']);
+      };
+
+      const { error } = await supabase.from("tone_preferences").insert(insertData);
 
       if (error) throw error;
 
@@ -170,11 +175,11 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
 
   const deleteTonePreference = async (id: string) => {
     try {
-      // Fix for TypeScript error - properly type the id parameter
+      // Converting id parameter type to match what the query expects
       const { error } = await supabase
         .from("tone_preferences")
         .delete()
-        .eq('id', id as unknown as Database['public']['Tables']['tone_preferences']['Row']['id']);
+        .eq("id", id as unknown as Database["public"]["Tables"]["tone_preferences"]["Row"]["id"]);
 
       if (error) throw error;
 

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { generateTweetsFromTranscript, setOpenAIKey, getOpenAIKey, GeneratedTweet } from "@/utils/tweetGenerator";
 import { Database } from "@/integrations/supabase/types";
+import { Json } from "@/integrations/supabase/types";
 
 interface Tweet {
   tweet: string;
@@ -56,7 +57,7 @@ export const useThreadGenerator = () => {
         .from('sessions')
         .select('id')
         .eq('user_id', user.id)
-        .eq('transcript', transcriptText as any)
+        .eq('transcript', transcriptText)
         .order('created_at', { ascending: false })
         .limit(1);
         
@@ -65,9 +66,12 @@ export const useThreadGenerator = () => {
         return null;
       }
       
-      if (data && data.length > 0) {
-        console.log("Found existing session with this transcript:", data[0]?.id);
-        return data[0]?.id || null;
+      if (data && data.length > 0 && data[0]) {
+        const sessionId = data[0].id;
+        if (sessionId) {
+          console.log("Found existing session with this transcript:", sessionId);
+          return sessionId;
+        }
       }
       
       console.log("No existing session found with this transcript");
@@ -195,10 +199,10 @@ export const useThreadGenerator = () => {
     try {
       console.log("Creating new session for user:", user.id);
       // Fix for TypeScript error - structure session data properly
-      const sessionData: Database['public']['Tables']['sessions']['Insert'] = {
+      const sessionData: Database["public"]["Tables"]["sessions"]["Insert"] = {
         user_id: user.id,
         title: `Session ${new Date().toLocaleString()}`,
-        transcript: transcriptText as any,
+        transcript: transcriptText,
       };
       
       const { data, error: sessionError } = await supabase
@@ -211,8 +215,8 @@ export const useThreadGenerator = () => {
         throw sessionError;
       }
       
-      if (data && data.length > 0) {
-        const newSessionId = data[0]?.id;
+      if (data && data.length > 0 && data[0]) {
+        const newSessionId = data[0].id;
         if (newSessionId) {
           console.log("Created new session with ID:", newSessionId);
           setSessionId(newSessionId);
@@ -262,9 +266,12 @@ export const useThreadGenerator = () => {
         throw new Error(error.message);
       }
       
-      if (data && data.length > 0 && data[0]?.example_tweets) {
-        setExampleTweets(data[0]?.example_tweets || []);
-        console.log("Loaded tone examples:", data[0]?.example_tweets);
+      if (data && data.length > 0 && data[0]) {
+        const toneData = data[0];
+        if (toneData && toneData.example_tweets) {
+          setExampleTweets(toneData.example_tweets);
+          console.log("Loaded tone examples:", toneData.example_tweets);
+        }
       } else {
         console.log("No tone examples found for user");
       }
@@ -352,8 +359,8 @@ export const useThreadGenerator = () => {
         console.log("Using existing session ID:", activeSessionId);
         // Update the transcript in the existing session
         try {
-          const updateData: Partial<Database['public']['Tables']['sessions']['Update']> = {
-            transcript: text as any,
+          const updateData: Partial<Database["public"]["Tables"]["sessions"]["Update"]> = {
+            transcript: text,
             updated_at: new Date().toISOString()
           };
           
@@ -380,7 +387,7 @@ export const useThreadGenerator = () => {
             session_id: activeSessionId,
             content: tweet.tweet,
             topic: tweet.topic || null
-          } as Database['public']['Tables']['generated_content']['Insert']));
+          } as Database["public"]["Tables"]["generated_content"]["Insert"]));
           
           // Log the data we're about to insert for debugging
           console.log("About to insert content:", tweetsToSave);

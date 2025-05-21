@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 
 const ThreadGenerator = () => {
   const location = useLocation();
@@ -150,11 +151,21 @@ const ThreadGenerator = () => {
           </p>
         </div>
         
-        {sessionId && (
-          <Button variant="outline" onClick={handleViewSession}>
-            View All Session Content
-          </Button>
-        )}
+        <div className="flex gap-3">
+          <TonePreferencesDrawer 
+            trigger={
+              <Button variant="outline">
+                Customize Tone
+              </Button>
+            }
+          />
+          
+          {sessionId && (
+            <Button variant="outline" onClick={handleViewSession}>
+              View All Session Content
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="grid gap-6 md:grid-cols-3">
