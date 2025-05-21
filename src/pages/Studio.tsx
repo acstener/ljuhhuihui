@@ -29,7 +29,7 @@ const Studio = () => {
   } = useElevenConversation();
   
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   
   // Navigation
   const navigate = useNavigate();
@@ -257,168 +257,6 @@ const Studio = () => {
     }
   };
   
-  const uploadVideoToSupabase = async (blob: Blob, sid: string) => {
-    if (!user) return;
-    
-    setIsVideoUploading(true);
-    try {
-      const fileName = `${sid}_${Date.now()}.webm`;
-      const filePath = `${user.id}/${fileName}`;
-      
-      // Get video dimensions before uploading
-      const videoDimensions = await getVideoDimensions(blob);
-      
-      // Upload video to storage
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(filePath, blob, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: 'video/webm'
-        });
-      
-      if (uploadError) throw uploadError;
-      
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('videos')
-        .getPublicUrl(filePath);
-      
-      if (!publicUrlData) throw new Error("Failed to get public URL");
-      
-      // Update session with video URL
-      const { error: updateError } = await supabase
-        .from('sessions')
-        .update({ 
-          video_url: publicUrlData.publicUrl,
-          video_duration: Math.round(await getVideoDuration(blob)),
-          video_dimensions: videoDimensions
-        })
-        .eq('id', sid);
-      
-      if (updateError) throw updateError;
-      
-      toast({
-        title: "Video saved",
-        description: "Your video has been saved successfully.",
-      });
-    } catch (error) {
-      console.error("Error uploading video:", error);
-      toast({
-        variant: "destructive",
-        title: "Upload Error",
-        description: "Failed to upload video. Please try again."
-      });
-    } finally {
-      setIsVideoUploading(false);
-    }
-  };
-  
-  // Helper functions to get video metadata
-  const getVideoDuration = (blob: Blob): Promise<number> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
-        resolve(video.duration);
-      };
-      
-      video.src = URL.createObjectURL(blob);
-    });
-  };
-  
-  const getVideoDimensions = (blob: Blob): Promise<{width: number, height: number}> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
-        resolve({
-          width: video.videoWidth,
-          height: video.videoHeight
-        });
-      };
-      
-      video.src = URL.createObjectURL(blob);
-    });
-  };
-  
-  const useTranscript = async () => {
-    if (!transcriptRef.current.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Empty Transcript",
-        description: "Please have a conversation first or enter some content."
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    
-    try {
-      // If we don't have a session yet, create one
-      let currentSessionId = sessionId;
-      
-      if (!currentSessionId && user) {
-        const { data, error } = await supabase
-          .from('sessions')
-          .insert({
-            user_id: user.id,
-            title: `Session ${new Date().toLocaleString()}`,
-            transcript: transcriptRef.current
-          })
-          .select();
-          
-        if (error) throw error;
-        if (data && data.length > 0) {
-          currentSessionId = data[0].id;
-          setSessionId(data[0].id);
-        }
-      } else if (currentSessionId) {
-        // Update the existing session
-        await supabase
-          .from('sessions')
-          .update({ 
-            transcript: transcriptRef.current,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', currentSessionId);
-      }
-      
-      // Save transcript to localStorage for direct routing to generate page
-      localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
-      
-      // Also set a default style if none exists (simplified flow without transcript editor)
-      if (!localStorage.getItem("tweetGenerationStyle")) {
-        localStorage.setItem("tweetGenerationStyle", "my-voice");
-      }
-      
-      // Navigate directly to generate page with session ID
-      navigate("/generate/new", { 
-        state: { 
-          transcript: transcriptRef.current,
-          sessionId: currentSessionId 
-        }
-      });
-    } catch (error) {
-      console.error("Error saving transcript:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save transcript. Using local storage instead."
-      });
-      
-      // Fallback to localStorage if Supabase fails
-      localStorage.setItem("tweetGenerationTranscript", transcriptRef.current);
-      navigate("/generate/new", { state: { transcript: transcriptRef.current } });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Function to test authentication and storage permissions
   const testAuthAndStorage = async () => {
     try {
@@ -444,15 +282,26 @@ const Studio = () => {
           title: "Auth Error",
           description: "No active session found. Please log in again."
         });
-        return;
+        
+        // Try refreshing the session
+        await refreshSession();
+        
+        // Check if refresh worked
+        const { data: refreshedData } = await supabase.auth.getSession();
+        console.log("Session after refresh attempt:", refreshedData.session);
+        
+        if (!refreshedData.session) {
+          console.error("Session refresh failed");
+          return;
+        }
       }
       
       // 2. Try minimal test upload
       const testBlob = new Blob(["test content"], { type: "text/plain" });
-      const testFilePath = `${sessionData.session.user.id}/test_${Date.now()}.txt`;
+      const testFilePath = `${sessionData.session?.user.id || 'anonymous'}/test_${Date.now()}.txt`;
       
       console.log("Attempting test upload with:", {
-        user: sessionData.session.user,
+        user: sessionData.session?.user,
         path: testFilePath,
         bucket: 'videos'
       });
@@ -510,10 +359,18 @@ const Studio = () => {
       // Verify we have a valid session before uploading
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
-        throw new Error("No active session found. Please log in again.");
+        // Try to refresh the session
+        await refreshSession();
+        
+        // Check if refresh worked
+        const { data: refreshedData } = await supabase.auth.getSession();
+        if (!refreshedData.session) {
+          throw new Error("No active session found. Please log in again.");
+        }
+        console.log("Session refreshed successfully for upload");
       }
       
-      console.log("Verified active session:", sessionData.session.user.id);
+      console.log("Verified active session:", sessionData.session?.user.id);
       
       const fileName = `${sid}_${Date.now()}.webm`;
       const filePath = `${user.id}/${fileName}`;
@@ -634,6 +491,9 @@ const Studio = () => {
     setIsSaving(true);
     
     try {
+      // Refresh the session before saving to ensure we're authenticated
+      await refreshSession();
+      
       // If we don't have a session yet, create one
       let currentSessionId = sessionId;
       
