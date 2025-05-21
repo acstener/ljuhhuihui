@@ -32,6 +32,7 @@ export const WebcamCapture = ({
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [timerInterval, setTimerInterval] = useState<number | null>(null);
   const [isBrowserSupported, setIsBrowserSupported] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const sizeClasses = {
     sm: "h-16 w-16",
@@ -41,14 +42,19 @@ export const WebcamCapture = ({
   
   // Check browser compatibility on mount
   useEffect(() => {
+    console.log("WebcamCapture: Checking browser compatibility");
     if (!navigator.mediaDevices || !window.MediaRecorder) {
+      console.error("WebcamCapture: Browser not supported");
       setIsBrowserSupported(false);
       setIsLoading(false);
+      setErrorMessage("Your browser doesn't support webcam recording");
       toast({
         title: "Browser not supported",
         description: "Your browser doesn't support webcam recording.",
         variant: "destructive"
       });
+    } else {
+      console.log("WebcamCapture: Browser supports webcam recording");
     }
   }, [toast]);
   
@@ -56,24 +62,34 @@ export const WebcamCapture = ({
   useEffect(() => {
     if (!isBrowserSupported) return;
     
+    console.log("WebcamCapture: Initializing webcam");
     let stream: MediaStream | null = null;
     
     const initWebcam = async () => {
       setIsLoading(true);
+      setErrorMessage(null);
       try {
+        console.log("WebcamCapture: Requesting camera access");
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720 },
           audio: true
         });
         
+        console.log("WebcamCapture: Camera access granted", stream);
+        
         if (videoRef.current) {
+          console.log("WebcamCapture: Setting video source");
           videoRef.current.srcObject = stream;
           streamRef.current = stream;
           setHasPermission(true);
+        } else {
+          console.error("WebcamCapture: Video ref is null");
+          setErrorMessage("Video element not available");
         }
       } catch (err) {
-        console.error("Error accessing webcam:", err);
+        console.error("WebcamCapture: Error accessing webcam:", err);
         setHasPermission(false);
+        setErrorMessage(err instanceof Error ? err.message : "Unknown error accessing camera");
         toast({
           title: "Camera access denied",
           description: "Please allow camera access to record video.",
@@ -88,8 +104,12 @@ export const WebcamCapture = ({
     
     // Cleanup
     return () => {
+      console.log("WebcamCapture: Cleaning up");
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => {
+          console.log("WebcamCapture: Stopping track", track.kind);
+          track.stop();
+        });
       }
     };
   }, [isBrowserSupported, toast]);
@@ -97,6 +117,8 @@ export const WebcamCapture = ({
   // Start/stop recording based on isRecording prop
   useEffect(() => {
     if (!hasPermission || !streamRef.current) return;
+    
+    console.log("WebcamCapture: Recording state changed", isRecording);
     
     if (isRecording) {
       startRecording();
@@ -122,31 +144,58 @@ export const WebcamCapture = ({
   }, [isRecording]);
   
   const startRecording = () => {
-    if (!streamRef.current) return;
+    if (!streamRef.current) {
+      console.error("WebcamCapture: No stream available for recording");
+      return;
+    }
     
+    console.log("WebcamCapture: Starting recording");
     chunksRef.current = [];
     setPreviewUrl(null);
     
     try {
-      const options = { mimeType: "video/webm;codecs=vp9,opus" };
+      // Try different mime types if the preferred one isn't supported
+      let options;
+      const mimeTypes = ["video/webm;codecs=vp9,opus", "video/webm", "video/mp4"];
+      
+      for (const mimeType of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(mimeType)) {
+          options = { mimeType };
+          console.log(`WebcamCapture: Using mime type: ${mimeType}`);
+          break;
+        }
+      }
+      
+      console.log("WebcamCapture: Creating MediaRecorder with options:", options);
       mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
       
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
+          console.log(`WebcamCapture: Received data chunk: ${event.data.size} bytes`);
         }
       };
       
       mediaRecorderRef.current.onstop = () => {
+        console.log("WebcamCapture: Recording stopped");
         const videoBlob = new Blob(chunksRef.current, { type: "video/webm" });
+        console.log(`WebcamCapture: Created video blob: ${videoBlob.size} bytes`);
         const url = URL.createObjectURL(videoBlob);
         setPreviewUrl(url);
         onRecordingStop(videoBlob);
       };
       
-      mediaRecorderRef.current.start();
+      mediaRecorderRef.current.onerror = (event) => {
+        console.error("WebcamCapture: MediaRecorder error:", event);
+        setErrorMessage("Recording error occurred");
+      };
+      
+      mediaRecorderRef.current.start(1000); // Collect data every second
+      console.log("WebcamCapture: Recording started");
+      onRecordingStart();
     } catch (err) {
-      console.error("Error starting recording:", err);
+      console.error("WebcamCapture: Error starting recording:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to start recording");
       toast({
         title: "Recording Error",
         description: "Failed to start video recording.",
@@ -158,14 +207,21 @@ export const WebcamCapture = ({
   
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      console.log("WebcamCapture: Stopping recording");
       mediaRecorderRef.current.stop();
+    } else {
+      console.log("WebcamCapture: No active recording to stop");
     }
   };
   
   const resetCapture = () => {
+    console.log("WebcamCapture: Resetting capture");
     setPreviewUrl(null);
+    setErrorMessage(null);
     if (videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
+    } else {
+      console.warn("WebcamCapture: Can't reset capture, missing video ref or stream");
     }
   };
   
@@ -177,21 +233,27 @@ export const WebcamCapture = ({
   
   // Request camera permissions manually
   const requestCameraAccess = async () => {
+    console.log("WebcamCapture: Manually requesting camera access");
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
       
+      console.log("WebcamCapture: Camera access granted on manual request");
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setHasPermission(true);
+      } else {
+        console.error("WebcamCapture: Video ref is null on manual request");
       }
     } catch (err) {
-      console.error("Error accessing webcam:", err);
+      console.error("WebcamCapture: Error accessing webcam on manual request:", err);
       setHasPermission(false);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to access camera");
       toast({
         title: "Camera access denied",
         description: "Please allow camera access to record video.",
@@ -210,6 +272,7 @@ export const WebcamCapture = ({
           <Slash className="h-8 w-8 text-gray-500" />
         </div>
         <p className="mt-2 text-xs text-gray-500">Browser not supported</p>
+        {errorMessage && <p className="mt-1 text-xs text-red-500">{errorMessage}</p>}
       </div>
     );
   }
@@ -234,6 +297,7 @@ export const WebcamCapture = ({
           <AlertCircle className="h-8 w-8 text-amber-500" />
         </div>
         <p className="mt-2 text-xs text-gray-500">Camera access denied</p>
+        {errorMessage && <p className="mt-1 text-xs text-red-500">{errorMessage}</p>}
         <Button 
           variant="outline" 
           size="sm" 
@@ -307,6 +371,9 @@ export const WebcamCapture = ({
             ? "Recording..." 
             : "Camera ready"}
       </p>
+      
+      {/* Error message */}
+      {errorMessage && <p className="mt-1 text-xs text-red-500">{errorMessage}</p>}
     </div>
   );
 };

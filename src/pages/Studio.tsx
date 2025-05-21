@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff } from "lucide-rea
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceOrb } from "@/components/VoiceOrb";
 import { WebcamCapture } from "@/components/WebcamCapture";
@@ -37,8 +38,8 @@ const Studio = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Webcam state
-  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
+  // Webcam state - enable by default for better discoverability
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isVideoRecording, setIsVideoRecording] = useState(false);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [isVideoUploading, setIsVideoUploading] = useState(false);
@@ -48,6 +49,11 @@ const Studio = () => {
   
   // Save a copy of transcript for navigation
   const transcriptRef = useRef(transcript);
+  
+  // Log webcam state for debugging
+  useEffect(() => {
+    console.log("Webcam state:", { isVideoEnabled, isVideoRecording });
+  }, [isVideoEnabled, isVideoRecording]);
   
   // Auto-save transcript when it changes and we have a session ID
   useEffect(() => {
@@ -354,7 +360,7 @@ const Studio = () => {
           
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant={isVideoEnabled ? "default" : "outline"}
               size="sm"
               onClick={() => setIsVideoEnabled(!isVideoEnabled)}
               className="flex items-center gap-1 text-xs sm:text-sm"
@@ -392,6 +398,12 @@ const Studio = () => {
           </p>
         </div>
         
+        {/* Debug information */}
+        <div className="text-xs text-muted-foreground mb-2">
+          <p>Camera enabled: {isVideoEnabled ? "Yes" : "No"}</p>
+          <p>Camera recording: {isVideoRecording ? "Yes" : "No"}</p>
+        </div>
+        
         {/* Main content area with balanced spacing */}
         <div className="flex flex-col items-center w-full space-y-4">
           {/* Capture section - Voice Orb and Webcam */}
@@ -405,8 +417,8 @@ const Studio = () => {
               onStopConversation={stopConversation}
             />
             
-            {/* Webcam Capture (conditionally rendered) */}
-            {isVideoEnabled && (
+            {/* Always render Webcam component but use conditional styling */}
+            <div className={isVideoEnabled ? "block" : "hidden"}>
               <WebcamCapture
                 isRecording={isVideoRecording}
                 onRecordingStart={handleVideoStart}
@@ -414,7 +426,7 @@ const Studio = () => {
                 size="lg"
                 className={isVideoUploading ? "opacity-50 pointer-events-none" : ""}
               />
-            )}
+            </div>
           </div>
           
           {/* Chat conversation container */}
