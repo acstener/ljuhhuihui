@@ -11,6 +11,7 @@ import { VoiceOrb } from "@/components/VoiceOrb";
 import { WebcamCapture } from "@/components/WebcamCapture";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
+import { cn } from "@/lib/utils"; // Add this import to fix the error
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
