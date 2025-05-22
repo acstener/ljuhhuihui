@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { ArrowLeft, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { TonePreferencesDrawer } from "@/components/TonePreferencesDrawer";
 
 const ThreadGenerator = () => {
   const location = useLocation();
@@ -40,23 +39,15 @@ const ThreadGenerator = () => {
   // Flag to track if content generation has been triggered
   const generationTriggered = useRef(false);
   
-  // Debug logging
-  console.log("ThreadGenerator render - User:", (window as any).supabase?.auth?.getUser()?.id);
-  console.log("ThreadGenerator render - Session ID:", sessionId);
-  console.log("ThreadGenerator render - Transcript length:", transcript?.length || 0);
-  console.log("ThreadGenerator render - Location state:", location.state);
-  
   // Get session ID from location state if available
   useEffect(() => {
     if (location.state?.sessionId) {
-      console.log("Setting session ID from location state:", location.state.sessionId);
       setSessionId(location.state.sessionId);
       localStorage.setItem("currentSessionId", location.state.sessionId);
     }
     
     // Check for transcript in location state
     if (location.state?.transcript) {
-      console.log("Setting transcript from location state");
       setTranscript(location.state.transcript);
     }
   }, [location.state, setSessionId, setTranscript]);
@@ -151,21 +142,11 @@ const ThreadGenerator = () => {
           </p>
         </div>
         
-        <div className="flex gap-3">
-          <TonePreferencesDrawer 
-            trigger={
-              <Button variant="outline">
-                Customize Tone
-              </Button>
-            }
-          />
-          
-          {sessionId && (
-            <Button variant="outline" onClick={handleViewSession}>
-              View All Session Content
-            </Button>
-          )}
-        </div>
+        {sessionId && (
+          <Button variant="outline" onClick={handleViewSession}>
+            View All Session Content
+          </Button>
+        )}
       </div>
       
       <div className="grid gap-6 md:grid-cols-3">

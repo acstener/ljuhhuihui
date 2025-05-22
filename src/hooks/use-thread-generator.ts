@@ -3,8 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/App";
 import { generateTweetsFromTranscript, setOpenAIKey, getOpenAIKey, GeneratedTweet } from "@/utils/tweetGenerator";
-import { Database } from "@/integrations/supabase/types";
-import { Json } from "@/integrations/supabase/types";
 
 interface Tweet {
   tweet: string;
@@ -56,7 +54,7 @@ export const useThreadGenerator = () => {
         .from('sessions')
         .select('id')
         .eq('user_id', user.id)
-        .eq('transcript', transcriptText as any) // Type cast to handle Supabase type issues
+        .eq('transcript', transcriptText)
         .order('created_at', { ascending: false })
         .limit(1);
         
@@ -65,14 +63,9 @@ export const useThreadGenerator = () => {
         return null;
       }
       
-      // Safety check for data and proper type handling
-      if (data && Array.isArray(data) && data.length > 0 && data[0]) {
-        // Check if id property exists before accessing it
-        const sessionItem = data[0];
-        if ('id' in sessionItem && sessionItem.id) {
-          console.log("Found existing session with this transcript:", sessionItem.id);
-          return sessionItem.id.toString();
-        }
+      if (data && data.length > 0) {
+        console.log("Found existing session with this transcript:", data[0].id);
+        return data[0].id;
       }
       
       console.log("No existing session found with this transcript");
@@ -83,7 +76,6 @@ export const useThreadGenerator = () => {
     }
   };
 
-  // Load transcript and sessionId from localStorage or state
   useEffect(() => {
     // Only load transcript once to prevent multiple loads
     if (hasLoadedTranscript.current) {
@@ -200,17 +192,13 @@ export const useThreadGenerator = () => {
     
     try {
       console.log("Creating new session for user:", user.id);
-      
-      // Create a properly typed session object
-      const sessionData = {
-        user_id: user.id,
-        title: `Session ${new Date().toLocaleString()}`,
-        transcript: transcriptText as any,  // Cast to handle type issues
-      } as Database["public"]["Tables"]["sessions"]["Insert"];
-      
-      const { data, error: sessionError } = await supabase
+      const { data: sessionData, error: sessionError } = await supabase
         .from('sessions')
-        .insert(sessionData)
+        .insert([{
+          user_id: user.id,
+          title: `Session ${new Date().toLocaleString()}`,
+          transcript: transcriptText
+        }])
         .select();
       
       if (sessionError) {
@@ -218,23 +206,17 @@ export const useThreadGenerator = () => {
         throw sessionError;
       }
       
-      // Safely access the ID from the returned data
-      if (data && Array.isArray(data) && data.length > 0) {
-        const newSession = data[0];
-        if (newSession && 'id' in newSession && newSession.id) {
-          const newSessionId = newSession.id.toString();
-          console.log("Created new session with ID:", newSessionId);
-          setSessionId(newSessionId);
-          localStorage.setItem("currentSessionId", newSessionId);
-          window._createdSessionId = newSessionId;
-          
-          // Clear the pending transcript
-          localStorage.removeItem("pendingTranscript");
-          
-          return newSessionId;
-        } else {
-          console.error("No valid session ID returned after insert");
-        }
+      if (sessionData && sessionData.length > 0) {
+        const newSessionId = sessionData[0].id;
+        console.log("Created new session with ID:", newSessionId);
+        setSessionId(newSessionId);
+        localStorage.setItem("currentSessionId", newSessionId);
+        window._createdSessionId = newSessionId;
+        
+        // Clear the pending transcript
+        localStorage.removeItem("pendingTranscript");
+        
+        return newSessionId;
       } else {
         console.error("No session data returned after insert");
       }
@@ -271,13 +253,9 @@ export const useThreadGenerator = () => {
         throw new Error(error.message);
       }
       
-      // Safely check and extract example_tweets from the response
-      if (data && Array.isArray(data) && data.length > 0 && data[0]) {
-        const toneData = data[0];
-        if ('example_tweets' in toneData && Array.isArray(toneData.example_tweets)) {
-          setExampleTweets(toneData.example_tweets);
-          console.log("Loaded tone examples:", toneData.example_tweets);
-        }
+      if (data && data.length > 0 && data[0].example_tweets) {
+        setExampleTweets(data[0].example_tweets);
+        console.log("Loaded tone examples:", data[0].example_tweets);
       } else {
         console.log("No tone examples found for user");
       }
@@ -365,14 +343,12 @@ export const useThreadGenerator = () => {
         console.log("Using existing session ID:", activeSessionId);
         // Update the transcript in the existing session
         try {
-          const updateData: Partial<Database["public"]["Tables"]["sessions"]["Update"]> = {
-            transcript: text,
-            updated_at: new Date().toISOString()
-          };
-          
           const { error: updateError } = await supabase
             .from('sessions')
-            .update(updateData)
+            .update({ 
+              transcript: text,
+              updated_at: new Date().toISOString()
+            })
             .eq('id', activeSessionId);
             
           if (updateError) {
@@ -393,7 +369,7 @@ export const useThreadGenerator = () => {
             session_id: activeSessionId,
             content: tweet.tweet,
             topic: tweet.topic || null
-          } as Database["public"]["Tables"]["generated_content"]["Insert"]));
+          }));
           
           // Log the data we're about to insert for debugging
           console.log("About to insert content:", tweetsToSave);
@@ -472,19 +448,17 @@ export const useThreadGenerator = () => {
           
         if (error) throw error;
         
-        if (data && data.length > 0 && data[0]?.id) {
+        if (data && data.length > 0) {
           const contentId = data[0].id;
           
           // Update the content in Supabase
-          const updateData: Partial<Database['public']['Tables']['generated_content']['Update']> = {
-            content: newText,
-            is_edited: true,
-            updated_at: new Date().toISOString()
-          };
-          
           await supabase
             .from('generated_content')
-            .update(updateData)
+            .update({ 
+              content: newText,
+              is_edited: true,
+              updated_at: new Date().toISOString()
+            })
             .eq('id', contentId);
             
           console.log("Updated tweet in Supabase");
@@ -513,7 +487,7 @@ export const useThreadGenerator = () => {
           
         if (error) throw error;
         
-        if (data && data.length > 0 && data[0]?.id) {
+        if (data && data.length > 0) {
           const contentId = data[0].id;
           
           // Delete the content from Supabase
@@ -562,10 +536,10 @@ export const useThreadGenerator = () => {
     apiKeySet,
     setApiKey,
     generateTweets,
-    handleUpdateTweet: () => {}, // keeping stub functions for type compatibility
-    handleDeleteTweet: () => {},
-    handleCopyTweet: () => {},
-    handleDownloadAll: () => {},
+    handleUpdateTweet,
+    handleDeleteTweet,
+    handleCopyTweet,
+    handleDownloadAll,
     setSessionId,
     setTranscript,
     createNewSession,

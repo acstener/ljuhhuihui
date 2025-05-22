@@ -3,12 +3,11 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Trash } from "lucide-react";
+import { Plus, Trash, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sonner } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
-import { Database } from "@/integrations/supabase/types";
 
 import {
   Drawer,
@@ -53,8 +52,14 @@ const formSchema = z.object({
   exampleTweets: z.array(z.string()),
 });
 
-// Define type for TonePreference using Database types
-type TonePreference = Database["public"]["Tables"]["tone_preferences"]["Row"];
+type TonePreference = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  example_tweets: string[];
+  created_at: string;
+};
 
 // Update the component to accept a trigger prop
 interface TonePreferencesDrawerProps {
@@ -88,13 +93,7 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
-      // Properly handle data and type casting
-      if (data) {
-        // Type assertion with safety check
-        const validPreferences = Array.isArray(data) ? data as TonePreference[] : [];
-        setTonePreferences(validPreferences);
-      }
+      setTonePreferences(data || []);
     } catch (error: any) {
       console.error("Error fetching tone preferences:", error.message);
       toast({
@@ -144,17 +143,12 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
       // Filter out empty tweets
       const nonEmptyTweets = values.exampleTweets.filter(tweet => tweet.trim() !== "");
       
-      // Create a properly typed object for insert
-      const insertData = {
+      const { error } = await supabase.from("tone_preferences").insert({
         user_id: user.id,
         name: values.name,
         description: values.description,
         example_tweets: nonEmptyTweets,
-      } as Database["public"]["Tables"]["tone_preferences"]["Insert"];
-
-      const { error } = await supabase
-        .from("tone_preferences")
-        .insert(insertData);
+      });
 
       if (error) throw error;
 
@@ -178,11 +172,10 @@ export function TonePreferencesDrawer({ trigger }: TonePreferencesDrawerProps) {
 
   const deleteTonePreference = async (id: string) => {
     try {
-      // Use type safe approach for delete operation
       const { error } = await supabase
         .from("tone_preferences")
         .delete()
-        .eq("id", id as unknown as string);  // Cast to string to fix type issue
+        .eq("id", id);
 
       if (error) throw error;
 

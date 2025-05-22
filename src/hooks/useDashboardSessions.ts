@@ -4,7 +4,6 @@ import { useAuth } from "@/App";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "react-router-dom";
-import { Json } from "@/integrations/supabase/types";
 
 // Define types for our data
 interface Session {
@@ -12,9 +11,6 @@ interface Session {
   title: string;
   created_at: string;
   transcript: string | null;
-  video_url: string | null;
-  video_duration: number | null;
-  video_dimensions: { width: number, height: number } | null;
 }
 
 export function useDashboardSessions() {
@@ -109,24 +105,7 @@ export function useDashboardSessions() {
         );
         
         console.log("Unique sessions after deduplication:", uniqueSessions.length);
-        
-        // Transform the data to match our Session interface
-        const transformedSessions: Session[] = uniqueSessions.map(item => ({
-          id: item.id,
-          title: item.title,
-          created_at: item.created_at,
-          transcript: item.transcript,
-          video_url: item.video_url,
-          video_duration: item.video_duration,
-          // Convert video_dimensions JSON to our expected format or null
-          video_dimensions: item.video_dimensions 
-            ? (typeof item.video_dimensions === 'string' 
-                ? JSON.parse(item.video_dimensions) 
-                : item.video_dimensions as { width: number, height: number })
-            : null
-        }));
-        
-        setSessions(transformedSessions);
+        setSessions(uniqueSessions);
       }
       
       // Check for sessions in the database to verify

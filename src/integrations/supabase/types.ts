@@ -58,9 +58,6 @@ export type Database = {
           transcript: string | null
           updated_at: string
           user_id: string
-          video_dimensions: Json | null
-          video_duration: number | null
-          video_url: string | null
         }
         Insert: {
           created_at?: string
@@ -69,9 +66,6 @@ export type Database = {
           transcript?: string | null
           updated_at?: string
           user_id: string
-          video_dimensions?: Json | null
-          video_duration?: number | null
-          video_url?: string | null
         }
         Update: {
           created_at?: string
@@ -80,9 +74,6 @@ export type Database = {
           transcript?: string | null
           updated_at?: string
           user_id?: string
-          video_dimensions?: Json | null
-          video_duration?: number | null
-          video_url?: string | null
         }
         Relationships: []
       }

@@ -1,17 +1,16 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowLeft, Zap, MessageCircle, Video, VideoOff, RefreshCw, BugPlay } from "lucide-react";
+import { Send, ArrowLeft, Zap, MessageCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { useElevenConversation } from "@/hooks/use-eleven-conversation";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VoiceOrb } from "@/components/VoiceOrb";
-import { WebcamCapture } from "@/components/WebcamCapture";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
-import { cn } from "@/lib/utils";
 
 const Studio = () => {
   // Use the dedicated hook for ElevenLabs conversation
@@ -29,7 +28,7 @@ const Studio = () => {
   } = useElevenConversation();
   
   const { toast } = useToast();
-  const { user, refreshSession } = useAuth();
+  const { user } = useAuth();
   
   // Navigation
   const navigate = useNavigate();
@@ -38,33 +37,11 @@ const Studio = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Webcam state with improved management
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [isVideoRecording, setIsVideoRecording] = useState(false);
-  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
-  const [isVideoUploading, setIsVideoUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [webcamKey, setWebcamKey] = useState(Date.now());
-  const [isWebcamWorking, setIsWebcamWorking] = useState(false);
-  const lastRefreshTimeRef = useRef(Date.now());
-  const webcamRefreshTimeoutRef = useRef<number | null>(null);
-  const uploadRetryCount = useRef(0);
-  const maxUploadRetries = 3;
-  
   // Keep a stable instance identifier
   const componentId = useRef(`studio-${Date.now()}`).current;
   
   // Save a copy of transcript for navigation
   const transcriptRef = useRef(transcript);
-  
-  // Log webcam state for debugging
-  useEffect(() => {
-    console.log("Studio: Webcam state:", { 
-      isVideoEnabled, 
-      isVideoRecording,
-      isWebcamWorking
-    });
-  }, [isVideoEnabled, isVideoRecording, isWebcamWorking]);
   
   // Auto-save transcript when it changes and we have a session ID
   useEffect(() => {
@@ -124,84 +101,6 @@ const Studio = () => {
     }
   }, [isListening, sessionId, user, toast]);
   
-  // Toggle webcam recording with voice recording
-  useEffect(() => {
-    if (isListening && isVideoEnabled && !isVideoRecording) {
-      setIsVideoRecording(true);
-    } else if (!isListening && isVideoRecording) {
-      setIsVideoRecording(false);
-    }
-  }, [isListening, isVideoEnabled, isVideoRecording]);
-  
-  // Improved webcam refresh mechanism - only retry if camera is not working
-  useEffect(() => {
-    // Clear any existing timeout when component mounts/unmounts or state changes
-    if (webcamRefreshTimeoutRef.current) {
-      clearTimeout(webcamRefreshTimeoutRef.current);
-      webcamRefreshTimeoutRef.current = null;
-    }
-    
-    // Skip if webcam is disabled
-    if (!isVideoEnabled) return;
-    
-    console.log("Studio: Setting up webcam refresh mechanism");
-    
-    // If webcam is not working, schedule a refresh after a reasonable delay
-    if (!isWebcamWorking) {
-      // Calculate time since last refresh (to avoid refresh loops)
-      const timeSinceLastRefresh = Date.now() - lastRefreshTimeRef.current;
-      
-      // Only schedule a refresh if it's been at least 10 seconds since the last one
-      if (timeSinceLastRefresh >= 10000) {
-        console.log(`Studio: Webcam not working, scheduling refresh in 5 seconds`);
-        
-        webcamRefreshTimeoutRef.current = window.setTimeout(() => {
-          console.log("Studio: Refreshing webcam due to not working");
-          setWebcamKey(Date.now());
-          lastRefreshTimeRef.current = Date.now();
-          webcamRefreshTimeoutRef.current = null;
-        }, 5000);
-      } else {
-        console.log(`Studio: Webcam not working but last refresh was only ${Math.round(timeSinceLastRefresh/1000)}s ago, waiting...`);
-      }
-    }
-    
-    return () => {
-      if (webcamRefreshTimeoutRef.current) {
-        clearTimeout(webcamRefreshTimeoutRef.current);
-        webcamRefreshTimeoutRef.current = null;
-      }
-    };
-  }, [isVideoEnabled, isWebcamWorking]);
-  
-  // Handler for webcam status updates
-  const handleWebcamStatusChange = (isWorking: boolean) => {
-    console.log("Studio: Webcam status update -", isWorking ? "working" : "not working");
-    setIsWebcamWorking(isWorking);
-  };
-  
-  // Manual webcam refresh handler with cooldown
-  const [isRefreshingWebcam, setIsRefreshingWebcam] = useState(false);
-  
-  const handleRefreshWebcam = () => {
-    if (isRefreshingWebcam) return;
-    
-    setIsRefreshingWebcam(true);
-    console.log("Studio: Manually refreshing webcam");
-    setWebcamKey(Date.now());
-    lastRefreshTimeRef.current = Date.now();
-    
-    toast({
-      title: "Camera refreshed",
-      description: "Attempting to reconnect to your camera.",
-    });
-    
-    // Prevent spam clicking
-    setTimeout(() => {
-      setIsRefreshingWebcam(false);
-    }, 2000);
-  };
-  
   // Parse transcript into conversation format
   const parseTranscript = () => {
     if (!transcript.trim()) return [];
@@ -240,312 +139,6 @@ const Studio = () => {
   
   const conversationMessages = parseTranscript();
   
-  // Handle video recording events
-  const handleVideoStart = () => {
-    console.log("Video recording started");
-  };
-  
-  const handleVideoStop = async (blob: Blob | null) => {
-    if (!blob) {
-      console.error("No video recorded");
-      return;
-    }
-    
-    console.log("Video recording stopped, blob size:", blob.size);
-    setVideoBlob(blob);
-    
-    // Upload to Supabase if we have a session ID
-    if (sessionId && user) {
-      await uploadVideoToSupabase(blob, sessionId);
-    }
-  };
-  
-  // Function to test authentication and storage permissions
-  const testAuthAndStorage = async () => {
-    try {
-      // 1. Check current auth status
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error("Session check error:", sessionError);
-        toast({
-          variant: "destructive",
-          title: "Auth Error",
-          description: `Session check failed: ${sessionError.message}`
-        });
-        return;
-      }
-      
-      console.log("Current session:", sessionData.session);
-      
-      if (!sessionData.session) {
-        console.error("No active session found");
-        toast({
-          variant: "destructive",
-          title: "Auth Error",
-          description: "No active session found. Please log in again."
-        });
-        
-        // Try refreshing the session
-        await refreshSession();
-        
-        // Check if refresh worked
-        const { data: refreshedData } = await supabase.auth.getSession();
-        console.log("Session after refresh attempt:", refreshedData.session);
-        
-        if (!refreshedData.session) {
-          console.error("Session refresh failed");
-          return;
-        }
-      }
-      
-      // 2. Try minimal test upload
-      const testBlob = new Blob(["test content"], { type: "text/plain" });
-      const testFilePath = `${sessionData.session?.user.id || 'anonymous'}/test_${Date.now()}.txt`;
-      
-      console.log("Attempting test upload with:", {
-        user: sessionData.session?.user,
-        path: testFilePath,
-        bucket: 'videos'
-      });
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(testFilePath, testBlob, {
-          cacheControl: '3600',
-          upsert: true
-        });
-      
-      if (uploadError) {
-        console.error("Test upload failed:", uploadError);
-        toast({
-          variant: "destructive",
-          title: "Storage Error",
-          description: `Test upload failed: ${uploadError.message}`
-        });
-        return;
-      }
-      
-      console.log("Test upload successful:", uploadData);
-      toast({
-        title: "Test Successful",
-        description: "Storage upload test successful!"
-      });
-      
-    } catch (err) {
-      console.error("Storage test error:", err);
-      toast({
-        variant: "destructive",
-        title: "Test Error",
-        description: err instanceof Error ? err.message : "Unknown error"
-      });
-    }
-  };
-
-  // Enhanced uploadVideoToSupabase function with better error handling and retry logic
-  const uploadVideoToSupabase = async (blob: Blob, sid: string) => {
-    if (!user) {
-      console.error("No user object available for upload");
-      toast({
-        variant: "destructive",
-        title: "Authentication Error",
-        description: "You must be logged in to upload videos."
-      });
-      return;
-    }
-    
-    if (blob.size > 100 * 1024 * 1024) {
-      console.error("Video file too large:", blob.size);
-      toast({
-        variant: "destructive",
-        title: "File Too Large",
-        description: "Video must be less than 100MB"
-      });
-      return;
-    }
-    
-    setIsVideoUploading(true);
-    setUploadProgress(0);
-    console.log("Starting video upload for session:", sid);
-    console.log("Current user:", user);
-    
-    try {
-      // Ensure we have a fresh session token before attempting upload
-      console.log("Refreshing session before upload...");
-      await refreshSession();
-      
-      // Verify we have a valid session after refreshing
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        throw new Error("No active session found after refresh. Please log in again.");
-      }
-      
-      console.log("Session refreshed successfully for upload, user:", sessionData.session.user.id);
-      
-      // Create a valid filename
-      const fileName = `${sid}_${Date.now()}.webm`;
-      const filePath = `${user.id}/${fileName}`;
-      
-      console.log("Uploading file:", {
-        path: filePath, 
-        size: blob.size, 
-        type: blob.type
-      });
-      
-      // Show progress updates
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 95) return prev;
-          return prev + 5;
-        });
-      }, 500);
-      
-      // Convert the blob to an ArrayBuffer if it's not already
-      const fileBuffer = await blob.arrayBuffer();
-      
-      // Get video dimensions before uploading
-      const videoDimensions = await getVideoDimensions(blob);
-      const videoDuration = await getVideoDuration(blob);
-      
-      console.log("Video metadata:", { 
-        dimensions: videoDimensions,
-        duration: videoDuration
-      });
-      
-      // Upload video to storage with detailed logging
-      const uploadResult = await supabase.storage
-        .from('videos')
-        .upload(filePath, blob, {
-          cacheControl: '3600',
-          upsert: true,
-          contentType: 'video/webm'
-        });
-      
-      clearInterval(progressInterval);
-      
-      if (uploadResult.error) {
-        console.error("Storage upload error:", uploadResult.error);
-        
-        // If we get a token expiration error, try refreshing and retrying once
-        if (uploadResult.error.message.includes("JWT") || 
-            uploadResult.error.message.includes("token") ||
-            uploadResult.error.message.includes("auth")) {
-          
-          if (uploadRetryCount.current < maxUploadRetries) {
-            uploadRetryCount.current++;
-            console.log(`Retrying upload (attempt ${uploadRetryCount.current} of ${maxUploadRetries})...`);
-            
-            await refreshSession();
-            setUploadProgress(0);
-            
-            // Try upload again
-            const retryResult = await supabase.storage
-              .from('videos')
-              .upload(filePath, blob, {
-                cacheControl: '3600',
-                upsert: true,
-                contentType: 'video/webm'
-              });
-              
-            if (retryResult.error) {
-              throw retryResult.error;
-            }
-            
-            console.log("Retry successful:", retryResult.data);
-          } else {
-            throw uploadResult.error;
-          }
-        } else {
-          throw uploadResult.error;
-        }
-      }
-      
-      console.log("Upload successful:", uploadResult.data);
-      setUploadProgress(100);
-      
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('videos')
-        .getPublicUrl(filePath);
-      
-      if (!publicUrlData || !publicUrlData.publicUrl) {
-        throw new Error("Failed to get public URL");
-      }
-      
-      console.log("Generated public URL:", publicUrlData.publicUrl);
-      
-      // Update session with video URL
-      const updateResult = await supabase
-        .from('sessions')
-        .update({ 
-          video_url: publicUrlData.publicUrl,
-          video_duration: Math.round(videoDuration),
-          video_dimensions: videoDimensions
-        })
-        .eq('id', sid);
-      
-      if (updateResult.error) {
-        console.error("Session update error:", updateResult.error);
-        throw updateResult.error;
-      }
-      
-      // Reset retry counter on success
-      uploadRetryCount.current = 0;
-      
-      console.log("Session updated successfully with video URL");
-      
-      toast({
-        title: "Video saved",
-        description: "Your video has been saved successfully.",
-      });
-    } catch (error) {
-      console.error("Error uploading video:", error);
-      
-      toast({
-        variant: "destructive",
-        title: "Upload Error",
-        description: error instanceof Error 
-          ? `Upload failed: ${error.message}` 
-          : "Failed to upload video. Please try again."
-      });
-    } finally {
-      setIsVideoUploading(false);
-      setUploadProgress(0);
-    }
-  };
-  
-  // Helper functions to get video metadata
-  const getVideoDuration = (blob: Blob): Promise<number> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
-        resolve(video.duration);
-      };
-      
-      video.src = URL.createObjectURL(blob);
-    });
-  };
-  
-  const getVideoDimensions = (blob: Blob): Promise<{width: number, height: number}> => {
-    return new Promise((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
-        resolve({
-          width: video.videoWidth,
-          height: video.videoHeight
-        });
-      };
-      
-      video.src = URL.createObjectURL(blob);
-    });
-  };
-  
   const useTranscript = async () => {
     if (!transcriptRef.current.trim()) {
       toast({
@@ -559,9 +152,6 @@ const Studio = () => {
     setIsSaving(true);
     
     try {
-      // Refresh the session before saving to ensure we're authenticated
-      await refreshSession();
-      
       // If we don't have a session yet, create one
       let currentSessionId = sessionId;
       
@@ -638,43 +228,15 @@ const Studio = () => {
             <span className="whitespace-nowrap">Back to Dashboard</span>
           </Button>
           
-          <div className="flex items-center gap-2">
-            <Button
-              variant={isVideoEnabled ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                const newState = !isVideoEnabled;
-                setIsVideoEnabled(newState);
-                if (newState) {
-                  // When re-enabling, force a remount of the webcam
-                  setWebcamKey(Date.now());
-                }
-              }}
-              className="flex items-center gap-1 text-xs sm:text-sm"
-            >
-              {isVideoEnabled ? (
-                <>
-                  <VideoOff className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Disable Camera</span>
-                </>
-              ) : (
-                <>
-                  <Video className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">Enable Camera</span>
-                </>
-              )}
-            </Button>
-            
-            <Button
-              onClick={useTranscript}
-              disabled={!transcript.trim() || isSaving}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
-              size="sm"
-            >
-              {isSaving ? "Processing..." : "Generate Content"}
-              <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
-          </div>
+          <Button
+            onClick={useTranscript}
+            disabled={!transcript.trim() || isSaving}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 sm:gap-2 font-medium text-xs sm:text-sm"
+            size="sm"
+          >
+            {isSaving ? "Processing..." : "Generate Content"}
+            <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+          </Button>
         </header>
         
         {/* Title section with reduced spacing */}
@@ -685,42 +247,10 @@ const Studio = () => {
           </p>
         </div>
         
-        {/* Debug button (only in development) */}
-        <div className="text-xs text-muted-foreground mb-2">
-          <div className="flex items-center gap-2 justify-center">
-            <p>Camera status: {isVideoEnabled ? (isWebcamWorking ? "Ready" : "Connecting...") : "Disabled"}</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefreshWebcam}
-              disabled={isRefreshingWebcam || !isVideoEnabled}
-              className={cn(
-                "text-xs flex items-center gap-1",
-                isRefreshingWebcam && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <RefreshCw className={cn("h-3 w-3", isRefreshingWebcam && "animate-spin")} />
-              {isRefreshingWebcam ? "Refreshing..." : "Refresh Camera"}
-            </Button>
-            
-            {/* Debug button for testing authentication and storage */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={testAuthAndStorage}
-              className="text-xs flex items-center gap-1 ml-2"
-            >
-              <BugPlay className="h-3 w-3" />
-              Test Storage
-            </Button>
-          </div>
-        </div>
-        
         {/* Main content area with balanced spacing */}
         <div className="flex flex-col items-center w-full space-y-4">
-          {/* Capture section - Voice Orb and Webcam */}
-          <div className="flex flex-col sm:flex-row items-center gap-8 mb-4">
-            {/* Voice Orb */}
+          {/* Voice Orb with proper spacing */}
+          <div className="mb-4">
             <VoiceOrb 
               isListening={isListening}
               isInitializing={isInitializing}
@@ -728,19 +258,6 @@ const Studio = () => {
               onStartConversation={startConversation}
               onStopConversation={stopConversation}
             />
-            
-            {/* Always render Webcam component but use conditional styling */}
-            <div className={isVideoEnabled ? "block" : "hidden"}>
-              <WebcamCapture
-                key={webcamKey} // Important: Add key to force remount when needed
-                isRecording={isVideoRecording}
-                onRecordingStart={handleVideoStart}
-                onRecordingStop={handleVideoStop}
-                onStatusChange={handleWebcamStatusChange}
-                size="lg"
-                className={isVideoUploading ? "opacity-50 pointer-events-none" : ""}
-              />
-            </div>
           </div>
           
           {/* Chat conversation container */}
